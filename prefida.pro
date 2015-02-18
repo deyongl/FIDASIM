@@ -1,4 +1,4 @@
-PRO printc,str,f=f,b=b,s=s
+FUNCTION colored,str,f=f,b=b,s=s
     if not keyword_set(f) then f='w' ;;Foreground Color
     if not keyword_set(s) then s='b' ;;Style
     esc=string(27b)
@@ -33,11 +33,26 @@ PRO printc,str,f=f,b=b,s=s
     if sIndex eq -1 then sIndex=1
     if fIndex eq -1 then fIndex=7
 
-    print,esc+"["+style.(sIndex)+";"+fColors.(fIndex)+"m"+str+back
-
+    return,esc+"["+style.(sIndex)+";"+fColors.(fIndex)+"m"+str+back
 END
 
-PRO rotate_uvw,uvw,Arot,Brot,Crot,updown,xyz    
+PRO success,str
+    print, colored('SUCCESS: '+str,f='g')
+END
+
+PRO warn,str
+    print, colored('WARNING: '+str,f='y')
+END
+
+PRO error,str
+    print, colored('ERROR: '+str,f='r')
+END
+
+PRO info,str
+    print, colored('INFO: '+str,f='b')
+END
+
+PRO rotate_uvw,uvw,Arot,Brot,Crot,updown,xyz
     ;;rotate uvz by alpa alround z axis
     if updown lt 0 then qrz=MATRIX_MULTIPLY(Arot,uvw)
     if updown ge 0 then qrz=MATRIX_MULTIPLY(Brot,uvw)
@@ -87,14 +102,10 @@ PRO make_rot_mat,ALPHA,BETA,Arot,Brot,Crot
     Crot[2,0]= zero       & Crot[2,1]= zero       & Crot[2,2]= one
 END
 
-PRO make_grid,inputs,grid,err
+PRO make_beam_grid,inputs,grid,err
 
     err=1
 
-    if inputs.alpha gt 2*!DPI or inputs.beta gt 2*!DPI then begin
-        printc,'ERROR: Angles must be in radians',f='r'
-        goto, GET_OUT
-    endif
     make_rot_mat,inputs.alpha,inputs.beta,Arot,Brot,Crot
 
     nx=inputs.nx
@@ -134,19 +145,19 @@ PRO make_grid,inputs,grid,err
 
     ;; Make the corresponding grid center arrays
     xc=x+0.5d0*dx & yc=y+0.5d0*dy & zc=z+0.5d0*dz
-    
+
     ;;Rotate all grid points to machine coordinates
     rotate_points,x,y,z,Arot,Brot,Crot,u,v,w
     rotate_points,xc,yc,zc,Arot,Brot,Crot,uc,vc,wc
-    
+
     ;;Change origin for rotated points
     u+=inputs.origin[0] & uc+=inputs.origin[0]
-    v+=inputs.origin[1] & vc+=inputs.origin[1] 
+    v+=inputs.origin[1] & vc+=inputs.origin[1]
     w+=inputs.origin[2] & wc+=inputs.origin[2]
-    
+
     rgrid=sqrt(uc^2+vc^2)
     phigrid=atan(vc,uc)
-    
+
     r_grid=dblarr(nx,ny,nz) & phi_grid=r_grid
     w_grid=dblarr(nx,ny,nz) & u_grid=w_grid & v_grid=w_grid
     z_grid=dblarr(nx,ny,nz) & x_grid=z_grid & y_grid=z_grid
@@ -156,34 +167,34 @@ PRO make_grid,inputs,grid,err
         u_grid[i,j,k]=uc[l] & v_grid[i,j,k]=vc[l] & w_grid[i,j,k]=wc[l]
         x_grid[i,j,k]=xc[l] & y_grid[i,j,k]=yc[l] & z_grid[i,j,k]=zc[l]
     endfor
-    
+
     grid={nx:nx,ny:ny,nz:nz,x:x,y:y,z:z,xx:xx,yy:yy,zz:zz,xc:xc,yc:yc,zc:zc,xxc:xxc,yyc:yyc,zzc:zzc,$
           dx:dx,dy:dy,dz:dz,dr:dr,drmin:drmin,dv:dv,ng:ng,u:u,v:v,w:w,$
           uc:uc,vc:vc,wc:wc,r_grid:r_grid,phi_grid:phi_grid,$
           w_grid:w_grid,v_grid:v_grid,u_grid:u_grid,$
           x_grid:x_grid,y_grid:y_grid,z_grid:z_grid}
-    err=0   
+    err=0
     GET_OUT:
 END
-    
+
 PRO prepare_beam,inputs,nbi,nbgeom
-    
+
     nbgeom={err:1}
     isource=inputs.isource
 
     if nbi.pinj le 0. then begin
-        printc, 'ERROR: The selected source #'+string(isource)+' is not on',f='r'
+        error,'The selected source #'+string(isource)+' is not on'
         goto, GET_OUT
     endif
     uvw_src=nbi.xyz_src-inputs.origin
     uvw_pos=nbi.xyz_pos-inputs.origin
     uvw_origin=[0,0,0]-inputs.origin
-    
+
     make_rot_mat,-inputs.alpha,inputs.beta,Drot,Erot,Frot
     rotate_uvw,uvw_src,Drot,Erot,Frot,1,xyz_src ;;rotate from machine to beam coordinates
     rotate_uvw,uvw_pos,Drot,Erot,Frot,1,xyz_pos
     rotate_uvw,uvw_origin,Drot,Erot,Frot,1,xyz_origin
-    
+
     xs=xyz_src[0] & ys=xyz_src[1] & zs=xyz_src[2]
     xp=xyz_pos[0] & yp=xyz_pos[1] & zp=xyz_pos[2]
 
@@ -205,7 +216,7 @@ PRO prepare_beam,inputs,nbi,nbgeom
     print,ALPHA/!pi*180,FORMAT='(F20.10)'
     print,'Beta:'
     print,BETA,FORMAT='(F20.10)'
-    ;;MAKE ROTATION MATRICES 
+    ;;MAKE ROTATION MATRICES
     make_rot_mat,ALPHA,BETA,Arot,Brot,Crot
 
     nbgeom={isource:isource,alpha:ALPHA,beta:BETA,Arot:Arot,Brot:Brot,Crot:Crot,xyz_src:xyz_src,xyz_pos:xyz_pos,err:0}
@@ -221,9 +232,9 @@ PRO los_track,coords,xyz_los_vec,xyspt,ri,tcell,cell,ncell
     p=[0,0,0]
     dummy = min( abs( coords.xxc - ri[0] ), index )
     p[0]=index
-    dummy = min( abs( coords.yyc - ri[1] ), index ) 
+    dummy = min( abs( coords.yyc - ri[1] ), index )
     p[1]=index
-    dummy = min( abs( coords.zzc - ri[2] ), index ) 
+    dummy = min( abs( coords.zzc - ri[2] ), index )
     p[2]=index
 
     tcellh=fltarr(1000)
@@ -236,17 +247,17 @@ PRO los_track,coords,xyz_los_vec,xyspt,ri,tcell,cell,ncell
         index=where(vn gt 0.d0)
         if index[0] ne -1 then begin
             l(index)=p(index)+1
-        endif 
+        endif
         if l[0] gt coords.nx-1 or l[1] gt coords.ny-1 or $
            l[2] gt coords.nz-1 then goto, out
         ;;time needed to go into next cell
         dt_arr=fltarr(3)
         dt_arr[0] = ( coords.xx(l[0]) - ri[0] ) /vn[0]
         dt_arr[1] = ( coords.yy(l[1]) - ri[1] ) /vn[1]
-        dt_arr[2] = ( coords.zz(l[2]) - ri[2] ) /vn[2] 
+        dt_arr[2] = ( coords.zz(l[2]) - ri[2] ) /vn[2]
         dt=min(dt_arr,index)
-        ri[*] = ri[*] + vn[*]*dt 
-        if vn[index] gt 0.d0 then begin 
+        ri[*] = ri[*] + vn[*]*dt
+        if vn[index] gt 0.d0 then begin
             p[index]=p[index]+1
         endif else begin
             p[index]=p[index]-1
@@ -254,7 +265,7 @@ PRO los_track,coords,xyz_los_vec,xyspt,ri,tcell,cell,ncell
         if p[0] lt 0 or p[1] lt 0 or p[2] lt 0 then goto, out
         tcellh[m]=dt
         m=m+1
-        cellh[*,m]=p[*] 
+        cellh[*,m]=p[*]
     endwhile
     out:
     ;; Store results into compressed arrays!
@@ -291,11 +302,11 @@ PRO fida_los_wght,grid,xlens,ylens,zlens,xlos,ylos,zlos,weight,err_arr
             xyz_pos[0] = xyz_pos[0] + grid.dr[ic] * vi[0]/abs(vi[ic])
             xyz_pos[1] = xyz_pos[1] + grid.dr[ic] * vi[1]/abs(vi[ic])
             xyz_pos[2] = xyz_pos[2] + grid.dr[ic] * vi[2]/abs(vi[ic])
-            if xyz_pos[0] gt grid.xx[0] and xyz_pos[0] lt grid.xx[nx-1]+grid.dx and $ 
+            if xyz_pos[0] gt grid.xx[0] and xyz_pos[0] lt grid.xx[nx-1]+grid.dx and $
                 xyz_pos[1] gt grid.yy[0] and xyz_pos[1] lt grid.yy[ny-1]+grid.dy and $
                 xyz_pos[2] gt grid.zz[0] and xyz_pos[2] lt grid.zz[nz-1]+grid.dz then begin
                 goto, out
-            endif  
+            endif
         endfor
         out:
 
@@ -309,7 +320,7 @@ PRO fida_los_wght,grid,xlens,ylens,zlens,xlos,ylos,zlos,weight,err_arr
                     weight[cell[0,jj],cell[1,jj],cell[2,jj],chan]=tcell[jj]
                 endfor
             endif else begin
-                printc, 'WARNING: Channel #'+strtrim(string(chan),1)+' only crosses <= 1 cells',f='y'
+                warn,'Channel #'+strtrim(string(chan),1)+' only crosses <= 1 cells'
                 err_arr[chan]=1
             endelse
         endif else begin
@@ -318,8 +329,8 @@ PRO fida_los_wght,grid,xlens,ylens,zlens,xlos,ylos,zlos,weight,err_arr
     endfor
     index=where(finite(weight) eq 0,nind)
     if nind gt 0 then begin
-        printc,'ATTENTION: FIDA los weight at index '+strcompress(string(index),/remove_all)+$
-               ' set to 0.0 as it was NAN or Infinite!',f='y'
+        warn,'FIDA los weight at index '+strcompress(string(index),/remove_all)+$
+             ' set to 0.0 as it was NAN or Infinite'
         weight[index]=0.
     endif
 END
@@ -380,7 +391,7 @@ PRO npa_los_wght,los,grid,weight,err_arr
         dx=abs(x[1]-x[0])
         dy=abs(y[1]-y[0])
         xd = reform(rebin(x,nx,ny,/sample),nx*ny)
-        yd = reform(transpose(rebin(y,ny,nx,/sample)),nx*ny)    
+        yd = reform(transpose(rebin(y,ny,nx,/sample)),nx*ny)
         rrd = sqrt(xd^2 + yd^2)
 
         chord_coor,xyzlens,xyzlos,grid.u_grid,grid.v_grid,grid.w_grid,xp,yp,zp
@@ -405,12 +416,12 @@ PRO npa_los_wght,los,grid,weight,err_arr
             p=npa_prob(xd,yd,xp[xi,yi,zi],yp[xi,yi,zi],zp[xi,yi,zi],dx=dx,dy=dy)
             www=where(rrs ge rs[xi,yi,zi] or rrd ge rd[chan],nw)
             if nw ne 0 then p[www]=0
-            weight[xi,yi,zi,chan]=total(p)*dx*dy    
+            weight[xi,yi,zi,chan]=total(p)*dx*dy
         endfor
-        
+
         if total(weight[*,*,*,chan]) le 0 then err_arr[chan]=1
     endfor
-            
+
 END
 
 PRO prepare_chords,inputs,grid,chords,fida
@@ -455,13 +466,13 @@ PRO prepare_chords,inputs,grid,chords,fida
     ;;GET RID OF LOS THAT DONT CROSS THE GRID
     los=where(err_arr eq 0,nw,complement=miss_los,ncomplement=nww)
     if nw eq 0 then begin
-        printc,'ERROR: No chords crossed the simulation grid',f='r'
+        error,'No chords crossed the simulation grid'
         err=1
     endif else begin
         print,strtrim(string(nw),1)+' out of '+strtrim(string(chords.nchan),1)+' chords crossed the simulation grid'
         if nww ne 0 then begin
-            printc, 'ATTENTION: Missed indices:  '+strcompress(strjoin(string(miss_los))),f='y'
-            printc, 'ATTENTION: Missed chan_ids: '+strcompress(strjoin(string(chords.chan_id[miss_los],f='(i2)'))),f='y'
+            warn,'Missed indices: '+strcompress(strjoin(string(miss_los)))
+            warn, 'Missed chan_ids: '+strcompress(strjoin(string(chords.chan_id[miss_los],f='(i2)')))
         endif
         weight=weight[*,*,*,los]
         err=0
@@ -481,7 +492,7 @@ PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
     cdftest=findfile(inputs.cdf_file)
     ;print, '======================='
     if cdftest[0] eq '' then begin
-        printc,'ERROR: '+inputs.cdf_file+' was not found',f='r'
+        error, inputs.cdf_file+' was not found'
         err=1
         goto,GET_OUT
     endif
@@ -489,7 +500,7 @@ PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
     ;; Retrieve signals
     ;; --------------------------------------------------------
     ncdf_varget, cdfid,'TRANSP_RUNID', runid
-    ncdf_varget, cdfid,'TIME' , cdf_time    
+    ncdf_varget, cdfid,'TIME' , cdf_time
     ncdf_varget, cdfid,'R2D'  , r2d     ; rposition of cells
     ncdf_varget, cdfid,'Z2D'  , z2d     ;zposition of cells
     ncdf_varget, cdfid,'BMVOL', bmvol   ; plasma volume
@@ -511,22 +522,22 @@ PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
         rmin[i]=min(rsurf[*,index[1]])
     endfor
     pitch_boundary=sqrt(1.-rmin[*]/r2d[*])
-    
+
     ;; ----------- Check the time
     if abs(inputs.time-cdf_time) gt 0.02 then begin
-        print, ' CDF file time:',cdf_time 
-        printc, 'WARNING: Time of CDF file and simulation disagree!',f='y'
-    endif     
+        print, 'CDF file time:',cdf_time
+        warn, 'Time of CDF file and simulation disagree!'
+    endif
     ;;-------------Convert eV-> keV
-    energy=energy*1.0d-3          ;; fidasim needs energy in kev  
+    energy=energy*1.0d-3          ;; fidasim needs energy in kev
     fbm=fbm*1.0d3                 ;; now, this needs to be corrected
-    ;; as we now calculate with fast-ions/omega/keV/cm^3 
+    ;; as we now calculate with fast-ions/omega/keV/cm^3
     ;;------------Convert d_omega --> pitch
     ;; Fast-ion distribution is given as a function of cm^3, energy
     ;; and d_omega/4Pi. omega is the solild angle in 3D velocity space. In
     ;; order to transform this to a function depending on pitch instead
     ;; of d_omega/4PI, one has to multiply by 0.5!
-    fbm*=0.5  
+    fbm*=0.5
     ;; make sure that fbm is >=0:
     fbm>=0.
     ;;loading finished
@@ -541,7 +552,7 @@ PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
     endif
     ;;----------- select energy range -------
     index=where(energy ge inputs.emin and energy le inputs.emax,nenergy)
-    energy=energy[index]     
+    energy=energy[index]
     fbm=fbm[index,*,*]
     dE      = energy[1] - energy[0]
     emin=(float(energy[0])         - float(0.5*dE))>0.
@@ -549,17 +560,17 @@ PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
     print, 'Energy min/max:', emin,emax
     ;; --------- select Pitch range --------
     index=where(pitch ge inputs.pmin and pitch le inputs.pmax,npitch)
-    pitch=pitch[index] 
-    fbm=fbm[*,index,*]   
+    pitch=pitch[index]
+    fbm=fbm[*,index,*]
     dP  = abs(pitch[1]  - pitch[0])
     pmin=(float(pitch[0])       - float(0.5*dP))>(-1)
     pmax=(float(pitch[npitch-1])+ float(0.5*dP))<1
     print, 'Pitch  min/max:', pmin,pmax
-    
+
     fbm_struct={cdf_file:inputs.cdf_file,cdf_time:cdf_time,ngrid:ngrid,r2d:r2d,z2d:z2d,bmvol:bmvol,$
                 nenergy:nenergy,emin:emin,emax:emax,energy:energy,npitch:npitch,$
                 pmin:pmin,pmax:pmax,pitch:pitch,fbm:FBM}
-    
+
     ;; ------map fdens on FIDASIM grid and sort out
     ;; ------points outside the separatrix
     fdens=total(reform(total(fbm,1)),1)*dE*dP
@@ -573,7 +584,7 @@ PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
     ;;set negative values to zero
     fdens2=fdens2 >0.
 
-    ;; only write fdens2 if it is close to r2d,z2d grid 
+    ;; only write fdens2 if it is close to r2d,z2d grid
     ;;(this produced empty spots so i turned it off)
 ;   for i=0L,grid.ng-1 do a[i]=min(sqrt((z2d-zout[i])^2+(r2d-rout[i])^2))
 ;   ww=where(a gt width,nw)
@@ -586,37 +597,37 @@ END
 PRO map_profiles,inputs,grid,equil,profiles,plasma,err
     ;;-------------------------------------------------
     ;; MAP kinetic profiles on FIDASIM grid
-    ;;------------------------------------------------- 
+    ;;-------------------------------------------------
 
     rho_max=max(profiles.rho)
     ww=where(equil.rho_grid gt rho_max,nww)
-    
+
 
     ;;Electron density
     dene = 1.d-6 * interpol(profiles.dene,profiles.rho,equil.rho_grid) > 0. ;[1/cm^3]
     w=where(dene le 1.0d12,nw)
     if nw ne 0 then begin
-        printc,'WARNING: dene < 0.1e13 cm^-3 for '+string((100.0*nw)/grid.ng,f='(1f8.3)')+'% of grid elements',f='y'
+        warn,'dene < 0.1e13 cm^-3 for '+string((100.0*nw)/grid.ng,f='(1f8.3)')+'% of grid elements'
     endif
     if nww ne 0 then dene[ww]=0.001*1d13
 
     ;;Zeff
-    zeff = interpol(profiles.zeff,profiles.rho,equil.rho_grid) > 1.0 
+    zeff = interpol(profiles.zeff,profiles.rho,equil.rho_grid) > 1.0
     zeff = zeff < inputs.impurity_charge
     if nww ne 0 then zeff[ww]=1.0
 
     ;;Impurity density
     deni = (zeff-1.)/(inputs.impurity_charge*(inputs.impurity_charge-1))*dene
-    
+
     ;;Proton density
     denp = dene-inputs.impurity_charge*deni
     print,'Percent impurity: '+string(total(deni)/total(denp)*100.,f='(1f8.3)')+'%'
-    
+
     ;;Fast-ion density
     if inputs.load_fbm then begin
         transp_fbeam,inputs,grid,denf,fbm_struct,terr
         if terr eq 1 then begin
-            printc,'ERROR: Failed to map fast ion density',f='r'
+            error, 'Failed to map fast ion density'
             err=1
             goto,GET_OUT
         endif
@@ -629,38 +640,38 @@ PRO map_profiles,inputs,grid,equil,profiles,plasma,err
     te = 1.d-3 * interpol(profiles.te,profiles.rho,equil.rho_grid) > 0.001 ;keV
     w=where(te le .05,nw)
     if nw ne 0 then begin
-        printc,'WARNING: te < 50 eV for '+string((100.0*nw)/grid.ng,f='(1f8.3)')+'% of grid elements',f='y'
+        warn, 'te < 50 eV for '+string((100.0*nw)/grid.ng,f='(1f8.3)')+'% of grid elements'
     endif
     if nww ne 0 then te[ww]=0.001
-    
-    ;;Ion temperature   
+
+    ;;Ion temperature
     ti = 1.d-3 * interpol(profiles.ti,profiles.rho,equil.rho_grid) > 0.001 ;keV
     if max(ti) gt 20. or max(te) gt 20. then begin
-        printc, 'WARNING:',f='y'
-        printc, '    Electron or Ion temperature greater than 10 keV',f='y'
-        printc, '    Look at the tables, they might only consider',f='y'
-        printc, '    temperatures less than 10keV!',f='y'
+        warn,''
+        print, colored('    Electron or Ion temperature greater than 10 keV',f='y')
+        print, colored('    Look at the tables, they might only consider',f='y')
+        print, colored('    temperatures less than 10keV!',f='y')
     endif
     if nww ne 0 then ti[ww]=0.001
 
-    ;;Plasma rotation   
-    vtor      =   interpol(profiles.vtor,profiles.rho,equil.rho_grid)*grid.r_grid ; [cm/s]  
+    ;;Plasma rotation
+    vtor      =   interpol(profiles.vtor,profiles.rho,equil.rho_grid)*grid.r_grid ; [cm/s]
     if nww ne 0 then vtor[ww]  =   replicate(0.0,nww)*grid.r_grid[ww]
 
-    vrotu = - sin(grid.phi_grid)*vtor 
+    vrotu = - sin(grid.phi_grid)*vtor
     vrotv =   cos(grid.phi_grid)*vtor
-    vrotw =   0.d0*vrotu 
+    vrotw =   0.d0*vrotu
 
     if nww ne 0 then begin
-        printc,'ATTENTION: Setting...',f='y'
-        printc,'    dene[rho > '+string(rho_max,f='(1f8.3)')+'] = 1e10 [cm^-3]',f='y'
-        printc,'    te[  rho > '+string(rho_max,f='(1f8.3)')+'] = 1e-3 [keV]',f='y'
-        printc,'    ti[  rho > '+string(rho_max,f='(1f8.3)')+'] = 1e-3 [keV]',f='y'
-        printc,'    vtor[rho > '+string(rho_max,f='(1f8.3)')+'] = 0 [cm/s]',f='y'
-        printc,'    zeff[rho > '+string(rho_max,f='(1f8.3)')+'] = 1 ',f='y'
-    endif 
+        info,'Setting...'
+        print,colored('    dene[rho > '+string(rho_max,f='(1f8.3)')+'] = 1e10 [cm^-3]',f='b')
+        print,colored('    te[  rho > '+string(rho_max,f='(1f8.3)')+'] = 1e-3 [keV]',f='b')
+        print,colored('    ti[  rho > '+string(rho_max,f='(1f8.3)')+'] = 1e-3 [keV]',f='b')
+        print,colored('    vtor[rho > '+string(rho_max,f='(1f8.3)')+'] = 0 [cm/s]',f='b')
+        print,colored('    zeff[rho > '+string(rho_max,f='(1f8.3)')+'] = 1 ',f='b')
+    endif
 
-    ;;Rotate vector quantities to beam coordinates 
+    ;;Rotate vector quantities to beam coordinates
     make_rot_mat,-inputs.alpha,-inputs.beta,Arot,Brot,Crot
     rotate_points,vrotu,vrotv,vrotw,Arot,Brot,Crot,vrotx,vroty,vrotz ;;machine basis to beam basis
     rotate_points,equil.bx,equil.by,equil.bz,Arot,Brot,Crot,bx,by,bz
@@ -678,7 +689,7 @@ PRO map_profiles,inputs,grid,equil,profiles,plasma,err
             vrotu:vrotu,vrotv:vrotv,vrotw:vrotw,$
             te:te,ti:ti,vtor:vtor,dene:dene,denp:denp,deni:deni,denf:denf,zeff:zeff}
     err=0
-    GET_OUT: 
+    GET_OUT:
 END
 
 FUNCTION sinterpol,v,x,u,sortt=sortt,_extra=_extra
@@ -713,7 +724,7 @@ PRO brems,inputs,det,profiles,equil,vbline
     te=profiles.te              ; eV
     dene=profiles.dene*1.e-6    ; cm^-3
     zeff=profiles.zeff
-    
+
     ; Require non-zero values for te and ne
     w=where(te le 0. or dene le 0.,nw)
     if nw gt 0 then begin
@@ -731,7 +742,7 @@ PRO brems,inputs,det,profiles,equil,vbline
     lambda=6561.    ; average wavelength (Angstroms)
     h_planck=4.135667e-15  ; [eV/s]
     c0=2.9979e8 ; [m/s]
-    
+
     ; Visible bremsstrahlung emissivity versus rho
     gaunt=5.542-(3.108-alog(te/1000.))*(0.6905-0.1323/zeff)
     emisrho=10.*7.57d-9*gaunt*dene^2*zeff/(lambda*sqrt(te)) $
@@ -757,10 +768,10 @@ END
 
 PRO write_namelist,inputs
 
-    printc,'Writing namelist file...',f='c'
+    info,'Writing namelist file...'
     spawn,'which git',git_command
     git_hash = ''
-    if git_command ne '' then begin 
+    if git_command ne '' then begin
         spawn,git_command+' --git-dir='+inputs.install_dir+'.git rev-parse HEAD',git_hash
     endif
     filename = inputs.result_dir+'/'+inputs.runid+'_inputs.dat'
@@ -777,8 +788,8 @@ PRO write_namelist,inputs
     printf,55,''
     printf,55,'!! Shot Info'
     printf,55,'!! Diagnostic: ',inputs.diag
-    printf,55,f='("shot = ", i6 ,"    !! Shot Number")',inputs.shot    
-    printf,55,f='("time = ", 1f8.5 ,"    !! Time")',inputs.time    
+    printf,55,f='("shot = ", i6 ,"    !! Shot Number")',inputs.shot
+    printf,55,f='("time = ", 1f8.5 ,"    !! Time")',inputs.time
     printf,55,"runid = '" + inputs.runid + "'    !! runID"
 	printf,55,"result_dir = '" + inputs.result_dir+"'    !! Result Dir"
     printf,55,''
@@ -799,9 +810,9 @@ PRO write_namelist,inputs
     printf,55,f='("lambdamax = ",1f9.3,"    !! Maximum Wavelength")',inputs.lambdamax
     printf,55,''
     printf,55,'!! Monte Carlo Settings'
-    printf,55,f='("nr_fast = ",i9,"    !! Number of FAST mc particles")',inputs.nr_fast
-    printf,55,f='("nr_nbi = ",i9,"    !! Number of NBI mc particles")',inputs.nr_nbi
-    printf,55,f='("nr_halo = ",i9,"    !! Number of HALO mc particles")',inputs.nr_halo
+    printf,55,f='("n_fast = ",i9,"    !! Number of FAST mc particles")',inputs.n_fast
+    printf,55,f='("n_nbi = ",i9,"    !! Number of NBI mc particles")',inputs.n_nbi
+    printf,55,f='("n_halo = ",i9,"    !! Number of HALO mc particles")',inputs.n_halo
     printf,55,''
     printf,55,'!! Weight Function Settings'
     printf,55,f='("ne_wght = ",i9,"    !! Number of Energies")',inputs.ne_wght
@@ -816,19 +827,21 @@ PRO write_namelist,inputs
     printf,55,'/'
     printf,55,''
     close,55
-    printc, 'SUCCESS: Namelist file created: '+filename,f='g'
+    success,'Namelist file created: '+filename
 END
 
 PRO check_inputs,inputs,err
 
-    printc,'Checking input file...',f='c'
+    info,'Checking input file...'
     vars=["shot","time","runid","device","install_dir","result_dir","cdf_file","profile_dir",$
           "emin","emax","pmin","pmax","isource","diag","einj","pinj","equil","btipsign","ab",$
-          "ai","impurity_charge","lambdamin","lambdamax","nlambda","dlambda","nx","ny","nz",$
-          "xmin","xmax","ymin","ymax","zmin","zmax","origin","alpha","beta","nr_fast","nr_nbi",$
-          "nr_halo","ne_wght","np_wght","nphi_wght","emax_wght","ichan_wght","dwav_wght",$
-          "wavel_start_wght","wavel_end_wght","calc_npa","calc_spec","calc_birth","calc_fida_wght",$
-          "calc_npa_wght","calc_brems","load_neutrals","load_fbm","interactive"]
+          "ai","impurity_charge","lambdamin","lambdamax","nlambda","dlambda",$
+          "nr","nw","rmin","rmax","wmin","wmax",$
+          "nx","ny","nz","xmin","xmax","ymin","ymax","zmin","zmax","origin","alpha","beta",$
+          "n_fast","n_nbi","n_halo","ne_wght","np_wght","nphi_wght",$
+          "emax_wght","ichan_wght","dwav_wght","wavel_start_wght","wavel_end_wght",$
+          "calc_npa","calc_spec","calc_birth","calc_fida_wght","calc_npa_wght","calc_brems",$
+          "load_neutrals","load_fbm","interactive"]
 
     inVars=strlowcase(TAG_NAMES(inputs))
 
@@ -840,27 +853,32 @@ PRO check_inputs,inputs,err
     for i=0,n_elements(vars)-1 do begin
        w=where(vars[i] eq inVars,nw)
        if nw eq 0 then begin
-           printc,'ERROR: '+vars[i]+' missing from input file',f='r'
+           error,vars[i]+' missing from input file'
            err=1
        endif
     endfor
-    
-    if (inputs.calc_spec or inputs.calc_npa) and (not inputs.load_fbm) then begin 
-       printc,'WARNING: load_fbm needs to be set',f='y'
-       printc,'ATTENTION: setting load_fbm=1',f='y'
+
+    if (inputs.calc_spec or inputs.calc_npa) and (not inputs.load_fbm) then begin
+       warn,'load_fbm needs to be set'
+       info,'setting load_fbm=1'
        inputs.load_fbm=1
     endif
 
     if inputs.calc_spec and inputs.calc_npa then begin
-        printc,'WARNING: calc_spec and calc_npa cannot both be set',f='y'
-        printc,'ATTENTION: setting calc_spec=1 & calc_npa = 0',f='y'
+        warn,'calc_spec and calc_npa cannot both be set'
+        info,'setting calc_spec=1 & calc_npa = 0'
         inputs.calc_npa=0
     endif
 
+    if inputs.alpha gt 2*!DPI or inputs.beta gt 2*!DPI then begin
+        error,'Angles must be in radians'
+        goto, GET_OUT
+    endif
+
     if err ne 0 then begin
-        printc,'ERROR: Invalid input file. Exiting...',f='r'
+        error,'Invalid input file. Exiting...'
     endif else begin
-        printc,'SUCCESS: Input file is valid',f='g'
+        success,'Input file is valid'
     endelse
 
 END
@@ -869,34 +887,34 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
 
     COMPILE_OPT DEFINT32
 
-    ;;READ IN INPUTS 
+    ;;READ IN INPUTS
 	;;THREE TYPES OF INPUTS...
 	;;   'FILE': JSON INPUT FILE
 	;;   'PROCEDURE': INPUT PROCEDURE
 	;;   'STRUCTURE': KEYWORD STRUCTURE
     if not keyword_set(input_str) then begin
         if n_elements(input_file) eq 0 then begin
-            printc,'ERROR: Input file not specified',f='r'
+            error,'Input file not specified'
             goto,GET_OUT
         endif
 
         if FILE_TEST(input_file) then begin
             ;;READ JSON INPUT FILE
             input_type='FILE'
-            printc,'Reading input from input file...',f='c'
+            info,'Reading input from input file...'
             inputs=read_json(input_file)
             inputs=create_struct('install_dir',GETENV('FIDASIM_DIR'),inputs)
         endif else begin
             ;;CALL INPUT PROCEDURE/FILE
             input_type='PROCEDURE'
-            printc,'Reading input from input procedure...',f='c'
-            printc,'WARNING: Input procedure is depreciated. Use JSON input file if possible',f='y'
+            info,'Reading input from input procedure...'
+            warn,'Input procedure is depreciated. Use JSON input file if possible'
             CALL_PROCEDURE,input_file,inputs
         endelse
     endif else begin
         ;;READ INPUTS FROM KEYWORD STRUCTURE
         input_type='STRUCTURE'
-        printc,'Reading input from structure...',f='c'
+        info,'Reading input from structure...'
 		inputs=input_str
 	endelse
 
@@ -911,7 +929,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     if slash ne '/' then inputs.install_dir+='/'
     slash=strmid(inputs.profile_dir,0,1,/reverse_offset)
     if slash ne '/' then inputs.profile_dir+='/'
-    
+
     ;;MAKE DIRECTORIES IF THEY DONT EXIST
     if file_test(inputs.result_dir,/directory) eq 0 then begin
         spawn,'mkdir '+inputs.result_dir
@@ -919,52 +937,52 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
 
     ;;ADD DEVICE DIRECTORY TO PATH
     !path = !path + ":" + expand_path("+"+inputs.install_dir+inputs.device)
-    
+
     ;;ADD INSTALL DIRECTORY TO PATH
     !path = !path + ":" + expand_path(inputs.install_dir)
 
     ;;MAKE GRID
-    printc,'Making grid...',f='c'
-    make_grid,inputs,grid,err
+    info,'Making grid...'
+    make_beam_grid,inputs,grid,err
     if err eq 1 then begin
-        printc,'ERROR: Grid creation failed. Exiting...',f='r'
+        error,'Beam grid creation failed. Exiting...'
         goto,GET_OUT
     endif else begin
-        printc,'SUCCESS: Grid creation completed',f='g'
+        success,'Beam grid creation completed'
         err=0
     endelse
 
     ;;CALL DEVICE ROUTINES THAT GET BEAM GEOMETRY, FIDA DIAGNOSTIC INFO, PROFILES, and the grid in flux coord.
-    printc,'Calling device routines...',f='c'
+    info,'Calling device routines...'
     CALL_PROCEDURE, strlowcase(inputs.device)+'_routines',inputs,grid, nbi, chords, profiles, equil,err
     if err eq 1 then begin
-        printc, 'ERROR: Device routines failed. Exiting...',f='r'
+        error,'Device routines failed. Exiting...'
         goto,GET_OUT
     endif else begin
-        printc,'SUCCESS: Device routines completed',f='g'
+        success,'Device routines completed'
         err=0
     endelse
 
     ;;BEAM PRE PROCESSING
-    printc,'Pre-processing beams...',f='c'
+    info,'Pre-processing beams...'
     prepare_beam,inputs,nbi,nbgeom
     if nbgeom.err eq 1 then begin
-        printc,'ERROR: Beam pre-processing failed. Exiting...',f='r'
+        error,'Beam pre-processing failed. Exiting...'
         goto, GET_OUT
     endif else begin
-        printc,'SUCCESS: Beam pre-processing completed',f='g'
+        success,'Beam pre-processing completed'
         err=0
     endelse
 
-    ;;FIDA PRE PROCESSING 
+    ;;FIDA PRE PROCESSING
     if inputs.calc_spec or inputs.calc_npa or inputs.calc_fida_wght or inputs.calc_npa_wght then begin
-        printc,'Pre-processing chords...',f='c'
+        info,'Pre-processing chords...'
         prepare_chords,inputs,grid,chords,fida
         if fida.err eq 1 then begin
-            printc,'ERROR: Chord pre-processing failed. Exiting...',f='r'
+            error,'Chord pre-processing failed. Exiting...'
             goto, GET_OUT
         endif else begin
-            printc,'SUCCESS: Chord pre-processing completed',f='g'
+            success,'Chord pre-processing completed'
         endelse
     endif else begin
         err=0
@@ -973,21 +991,21 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     endelse
 
     ;;MAP PROFILES ONTO GRID
-    printc,'Mapping profiles onto grid...',f='c'
+    info,'Mapping profiles onto grid...'
     map_profiles,inputs,grid,equil,profiles,plasma,err
     if err eq 1 then begin
-        printc,'ERROR: Profile mapping failed. Exiting...',f='r'
+        error,'Profile mapping failed. Exiting...'
         goto,GET_OUT
     endif else begin
-        printc,'SUCCESS: Profile mapping completed',f='g'
+        success,'Profile mapping completed'
         err=0
     endelse
 
     ;; Calculate bremsstrahlung if desired
     if inputs.calc_brems eq 0 then begin
-        printc,'Calculating bremsstrahlung...',f='c'
+        info,'Calculating bremsstrahlung...'
         brems,inputs,fida,profiles,equil,brems
-        printc,'SUCCESS: Bremsstrahlung calculation completed',f='g'
+        success,'Bremsstrahlung calculation completed'
     endif
 
     plot_file=inputs.install_dir+strupcase(inputs.device)+'/'+strlowcase(inputs.device)+'_plots.pro'
@@ -996,7 +1014,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
         CALL_PROCEDURE, strlowcase(inputs.device)+'_plots',inputs,grid,nbi,chords,fida,equil,nbgeom,plasma
     endif
 
-    ;;SAVE STRUCTURES 
+    ;;SAVE STRUCTURES
     if keyword_set(save) then begin
         file = inputs.result_dir+'/'+inputs.runid+'.sav'
         save,inputs,grid,profiles,chords,nbi,equil,nbgeom,fida,plasma,filename=file,/compress
@@ -1028,9 +1046,9 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ;;WRITE FIDASIM INPUT FILES
     write_namelist,inputs
 
-    printc,'Writing input data file...',f='c'
+    info,'Writing input data file...'
     ;;WRITE TO FILE
-    file =inputs.result_dir+'/'+inputs.runid+'_inputs.cdf' 
+    file =inputs.result_dir+'/'+inputs.runid+'_inputs.cdf'
     ncid = ncdf_create(file,/clobber)
 
     ;;DEFINE DIMENSIONS
@@ -1043,8 +1061,8 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
 
     if inputs.load_fbm then begin
         fbm_gdim= ncdf_dimdef(ncid,'fbm_grid',plasma.fbm.ngrid)
-        fbm_edim=ncdf_dimdef(ncid,'fbm_energy',plasma.fbm.nenergy)  
-        fbm_pdim=ncdf_dimdef(ncid,'fbm_pitch',plasma.fbm.npitch)    
+        fbm_edim=ncdf_dimdef(ncid,'fbm_energy',plasma.fbm.nenergy)
+        fbm_pdim=ncdf_dimdef(ncid,'fbm_pitch',plasma.fbm.npitch)
     endif
 
     xid = ncdf_dimdef(ncid,'x',grid.nx)
@@ -1095,9 +1113,9 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ;;DEFINE BEAM VARIABLES
     bn_varid=ncdf_vardef(ncid,'beam',one_id,/long)
     ab_varid=ncdf_vardef(ncid,'ab',one_id,/double)
-    divy_varid=ncdf_vardef(ncid,'divy',three_id,/double)    
+    divy_varid=ncdf_vardef(ncid,'divy',three_id,/double)
     divz_varid=ncdf_vardef(ncid,'divz',three_id,/double)
-    focy_varid=ncdf_vardef(ncid,'focy',one_id,/double)    
+    focy_varid=ncdf_vardef(ncid,'focy',one_id,/double)
     focz_varid=ncdf_vardef(ncid,'focz',one_id,/double)
     bmwidra_varid=ncdf_vardef(ncid,'bmwidra',one_id,/double)
     bmwidza_varid=ncdf_vardef(ncid,'bmwidza',one_id,/double)
@@ -1121,7 +1139,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
         emax_varid=ncdf_vardef(ncid,'FBM_emax',one_id,/double)
         pmin_varid=ncdf_vardef(ncid,'FBM_pmin',one_id,/double)
         pmax_varid=ncdf_vardef(ncid,'FBM_pmax',one_id,/double)
-        cdftime_varid=ncdf_vardef(ncid,'FBM_time',one_id,/double)   
+        cdftime_varid=ncdf_vardef(ncid,'FBM_time',one_id,/double)
         fbm_varid=ncdf_vardef(ncid,'FBM',[fbm_edim,fbm_pdim,fbm_gdim],/double)
     endif
 
@@ -1187,14 +1205,14 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     endif
 
     ;;WRITE GRID VARIABLES
-    ncdf_varput,ncid,ugrid_varid,double(grid.u_grid)    
-    ncdf_varput,ncid,vgrid_varid,double(grid.v_grid)    
-    ncdf_varput,ncid,wgrid_varid,double(grid.w_grid)    
-    ncdf_varput,ncid,rgrid_varid,double(grid.r_grid)    
-    ncdf_varput,ncid,phigrid_varid,double(grid.phi_grid)    
-    ncdf_varput,ncid,xgrid_varid,double(grid.x_grid)    
-    ncdf_varput,ncid,ygrid_varid,double(grid.y_grid)    
-    ncdf_varput,ncid,zgrid_varid,double(grid.z_grid)    
+    ncdf_varput,ncid,ugrid_varid,double(grid.u_grid)
+    ncdf_varput,ncid,vgrid_varid,double(grid.v_grid)
+    ncdf_varput,ncid,wgrid_varid,double(grid.w_grid)
+    ncdf_varput,ncid,rgrid_varid,double(grid.r_grid)
+    ncdf_varput,ncid,phigrid_varid,double(grid.phi_grid)
+    ncdf_varput,ncid,xgrid_varid,double(grid.x_grid)
+    ncdf_varput,ncid,ygrid_varid,double(grid.y_grid)
+    ncdf_varput,ncid,zgrid_varid,double(grid.z_grid)
     ncdf_varput,ncid,alpha_varid,double(inputs.alpha)
     ncdf_varput,ncid,beta_varid,double(inputs.beta)
     ncdf_varput,ncid,origin_varid,double(inputs.origin)
@@ -1260,7 +1278,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
 
     ;;WRITE BREMS
     if n_elements(brems) ne 0 then ncdf_varput,ncid,brems_varid,double(brems)
-    
+
     ;;WRITE LINE OF SIGHT (LOS)
     if inputs.calc_spec or inputs.calc_npa or inputs.calc_fida_wght or inputs.calc_npa_wght then begin
         los=fida.los
@@ -1279,15 +1297,14 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
         ncdf_varput,ncid,wght_varid,double(fida.weight)
     endif
     ncdf_close,ncid
-    printc,'SUCCESS: Input data file created: '+file,f='g'
+    success,'Input data file created: '+file
 
     print,''
     print,''
-    printc, 'SUCCESS: FIDASIM pre-processing completed',f='g'
+    success,'FIDASIM pre-processing completed'
     print, 'To run FIDASIM use the following command'
     print, inputs.install_dir+'fidasim '+inputs.result_dir+'/'+inputs.runid+'_inputs.dat'
     print,''
     print,''
     GET_OUT:
 END
-
