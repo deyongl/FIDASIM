@@ -8,8 +8,8 @@ FUNCTION nstx_beams,inputs,doplot=doplot
     ;;     FULL            DOUBLE          0.54850105
     ;;     HALF            DOUBLE          0.28972649
     ;;     THIRD           DOUBLE          0.16177245
-    ;;     XYZ_SRC         DOUBLE    Array[3]
-    ;;     XYZ_POS         DOUBLE    Array[3]
+    ;;     UVW_SRC         DOUBLE    Array[3]
+    ;;     UVW_POS         DOUBLE    Array[3]
     ;;     BMWIDRA         DOUBLE           6.0000000
     ;;     BMWIDZA         DOUBLE           24.000000
     ;;     DIVY            DOUBLE    Array[3]
@@ -18,8 +18,8 @@ FUNCTION nstx_beams,inputs,doplot=doplot
     ;;     FOCZ            DOUBLE           1000.0000
 
     isource=inputs.isource
-    ; machine coordinate (u,v,z): typical N-S-E-W type definitions of machine hall
-   
+    ; machine coordinate (u,v,w): typical N-S-E-W type definitions of machine hall
+
     ; Geometrical factors from TRANSP namelist
     ;-------------------------------
     ;  NB        1A       1B      1C
@@ -30,7 +30,7 @@ FUNCTION nstx_beams,inputs,doplot=doplot
     XYBSCA_on=[0.0  ,    0.0 ,    0.0 ] ;Elevation above/below vacuum vessel midplane of center of beam source grid [cm]
     XYBAPA_on=[0.0  ,    0.0 ,    0.0 ] ;Elevation above/below vacuum vessel midplane of beam centerline at aperture [cm]
     NLCO_on  =[1.0  ,    1.0 ,    1.0 ] ;1 for co-beams, -1 for counter-beams
- 
+
     ;off axis NBI
     ;  NB          2A       2B      2C
     XBZETA_off=[-39.2,   -35.7 ,   -32.2] ;toroidal angle of beam source in (R,zeta,Z)
@@ -57,12 +57,12 @@ FUNCTION nstx_beams,inputs,doplot=doplot
     divz=replicate(1.36d-2,3,nsources)
     focy=replicate(988.0,nsources)
     focz=replicate(988.0,nsources)
-    
+
     transp_geometry,RTCENA[isource],XLBAPA[isource],XLBTNA[isource],XBZETA[isource],$
-                    XYBAPA[isource],XYBSCA[isource],NLCO[isource],xyz_src,xyz_pos,angle=142.243
+                    XYBAPA[isource],XYBSCA[isource],NLCO[isource],uvw_src,uvw_pos,angle=142.243
 
     einj=double(inputs.einj) & pinj=double(inputs.pinj)
-    
+
     ;------------------------------------------
     ;;Get beam energy,power and fractions
     ;;D. Liu, need the subroutine get_nstx_beam 5/18/2014
@@ -71,9 +71,9 @@ FUNCTION nstx_beams,inputs,doplot=doplot
     ;if inputs.einj eq 0. then einj=a.einj else einj=inputs.einj
     ;if inputs.pinj eq 0. then pinj=a.pinj else pinj=inputs.pinj
     einj=double(einj) & pinj=double(pinj)
-    
+
     ; Based on the subroutine /u/rbell/cfrac.pro
-    ; Data for deuterium 
+    ; Data for deuterium
     denergy=[0., 80., 100.,  120., 200.]
     dmix1=[.467,.467,.440,.392,.392]
     dmix2=[.374,.374,.386,.395,.395]
@@ -84,12 +84,12 @@ FUNCTION nstx_beams,inputs,doplot=doplot
     curfrc[1]=interpol(dmix2,denergy,einj)
     curfrc[2]=interpol(dmix3,denergy,einj)
     ;;ffull[i]=curfrc[0] & fhalf[i]=curfrc[1] & fthird[i]=curfrc[2]
-    ;; FIDASIM uses current fractions   
+    ;; FIDASIM uses current fractions
     ffracs=curfrc[0] & hfracs=curfrc[1] & tfracs=1.0-ffracs-hfracs
-        
+
     ;;SAVE IN NBI STRUCTURE
     nbi={einj:einj,pinj:pinj,full:ffracs,half:hfracs,third:tfracs,$
-         xyz_src:xyz_src,xyz_pos:xyz_pos,$
+         uvw_src:uvw_src,uvw_pos:uvw_pos,$
          bmwidra:bmwidra[isource],bmwidza:bmwidza[isource],$
          divy:divy[*,isource],divz:divz[*,isource],$
          focy:focy[isource],focz:focz[isource] }

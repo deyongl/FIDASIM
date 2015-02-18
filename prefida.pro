@@ -53,7 +53,7 @@ PRO info,str
 END
 
 PRO rotate_uvw,uvw,Arot,Brot,Crot,updown,xyz
-    ;;rotate uvz by alpa alround z axis
+    ;;rotate uvz by alpha alround z axis
     if updown lt 0 then qrz=MATRIX_MULTIPLY(Arot,uvw)
     if updown ge 0 then qrz=MATRIX_MULTIPLY(Brot,uvw)
     ;; rotate qrz_ray by phi_box on xyz_coordinates
@@ -186,8 +186,8 @@ PRO prepare_beam,inputs,nbi,nbgeom
         error,'The selected source #'+string(isource)+' is not on'
         goto, GET_OUT
     endif
-    uvw_src=nbi.xyz_src-inputs.origin
-    uvw_pos=nbi.xyz_pos-inputs.origin
+    uvw_src=nbi.uvw_src-inputs.origin
+    uvw_pos=nbi.uvw_pos-inputs.origin
     uvw_origin=[0,0,0]-inputs.origin
 
     make_rot_mat,-inputs.alpha,inputs.beta,Drot,Erot,Frot
@@ -202,11 +202,11 @@ PRO prepare_beam,inputs,nbi,nbgeom
     BETA=double(asin((zp-zs)/dis))
     ALPHA=double(atan((yp-ys),(xp-xs))-!DPI)
     print,'Beam injection start point in machine coordinates'
-    print, nbi.xyz_src
+    print, nbi.uvw_src
     print,'Beam injection end point in machine coordinates'
-    print, nbi.xyz_pos
+    print, nbi.uvw_pos
     print,'Machine center in beam coordinates'
-    print, xyz_origin
+    print, uvw_origin
     print,'Beam injection start point in beam coordinates'
     print, xyz_src
     print,'Beam injection end point in beam coordinates'
@@ -435,13 +435,13 @@ PRO prepare_chords,inputs,grid,chords,fida
     weight  = replicate(0.d0,nx,ny,nz,chords.nchan)
 
     ;;CALCULATE RADIUS IN MACHINE COORDINATES
-    rlos=sqrt(chords.xlos^2.0 + chords.ylos^2.0)
+    rlos=sqrt(chords.ulos^2.0 + chords.vlos^2.0)
 
     ;;ROTATE CHORDS INTO BEAM COORDINATES
     make_rot_mat,-inputs.alpha,inputs.beta,Arot,Brot,Crot
-    ulens=chords.xlens-inputs.origin[0] & ulos=chords.xlos-inputs.origin[0]
-    vlens=chords.ylens-inputs.origin[1] & vlos=chords.ylos-inputs.origin[1]
-    wlens=chords.zlens-inputs.origin[2] & wlos=chords.zlos-inputs.origin[2]
+    ulens=chords.ulens-inputs.origin[0] & ulos=chords.ulos-inputs.origin[0]
+    vlens=chords.vlens-inputs.origin[1] & vlos=chords.vlos-inputs.origin[1]
+    wlens=chords.wlens-inputs.origin[2] & wlos=chords.wlos-inputs.origin[2]
     rotate_points,ulens,vlens,wlens,Arot,Brot,Crot,xlens,ylens,zlens
     rotate_points,ulos,vlos,wlos,Arot,Brot,Crot,xlos,ylos,zlos
 
@@ -655,7 +655,7 @@ PRO map_profiles,inputs,grid,equil,profiles,plasma,err
     if nww ne 0 then ti[ww]=0.001
 
     ;;Plasma rotation
-    vtor      =   interpol(profiles.vtor,profiles.rho,equil.rho_grid)*grid.r_grid ; [cm/s]
+    vtor      =   interpol(profiles.omega,profiles.rho,equil.rho_grid)*grid.r_grid ; [cm/s]
     if nww ne 0 then vtor[ww]  =   replicate(0.0,nww)*grid.r_grid[ww]
 
     vrotu = - sin(grid.phi_grid)*vtor
@@ -674,8 +674,8 @@ PRO map_profiles,inputs,grid,equil,profiles,plasma,err
     ;;Rotate vector quantities to beam coordinates
     make_rot_mat,-inputs.alpha,-inputs.beta,Arot,Brot,Crot
     rotate_points,vrotu,vrotv,vrotw,Arot,Brot,Crot,vrotx,vroty,vrotz ;;machine basis to beam basis
-    rotate_points,equil.bx,equil.by,equil.bz,Arot,Brot,Crot,bx,by,bz
-    rotate_points,equil.ex,equil.ey,equil.ez,Arot,Brot,Crot,ex,ey,ez
+    rotate_points,equil.bu,equil.bv,equil.bw,Arot,Brot,Crot,bx,by,bz
+    rotate_points,equil.eu,equil.ev,equil.ew,Arot,Brot,Crot,ex,ey,ez
 
     ;; test if there are NANs or Infinites in the input profiels
     index=where(finite([ti,te,dene,denp,zeff,denp,deni]) eq 0,nind)

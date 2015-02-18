@@ -2,7 +2,7 @@ FUNCTION create_transp_profiles, inputs, $
             no_omega=no_omega,doplot=doplot, sne=sne, ste=ste, sti=sti, simp=simp, srot=srot
 ;------------------------------------------------------------------------------------------------------
 ; WWH 9/10/2013
-; For f90 fidasim version. 
+; For f90 fidasim version.
 ; A modified version of the code eruskov wrote for IDL fidasim
 
 ; PURPOSE:  Write Ne,Te,Ti,Zeff & Omega profile structure from a TRANSP CDF file
@@ -10,7 +10,7 @@ FUNCTION create_transp_profiles, inputs, $
 ; INPUTS:   (in inputs structure)
 ;           transpid     e.g., '34616B02'
 ;           time         (seconds)
-;           profile_dir     directory where input transp CDF file resides 
+;           profile_dir     directory where input transp CDF file resides
 ;
 ; OUPUTS:   Profile data necessary for FIDA simulations
 ;
@@ -70,21 +70,21 @@ if z.error eq -1 then begin
   print,'te profile unavailable'
   return,{err:1}
 end
-transp_te = z.data  ; ev 
+transp_te = z.data  ; ev
 
 z=read_netcdf_data(cdfid, 'ti')
 if z.error eq -1 then begin
   print,'ti profile unavailable'
   return,{err:1}
 end
-transp_ti = z.data   ; ev 
+transp_ti = z.data   ; ev
 
 z=read_netcdf_data(cdfid, 'zeffi')
 if z.error eq -1 then begin
   print,'zeffi profile unavailable'
   return,{err:1}
 end
-transp_zeff = z.data 
+transp_zeff = z.data
 
 if keyword_set(no_omega) then begin
   transp_omega=replicate(0.,n_elements(x),n_elements(t))
@@ -157,7 +157,7 @@ endif
 
 		;;SAVE IN PROFILES STRUCTURE
 profiles={rho:x,dene:transp_ne[*,idx],te:transp_te[*,idx],ti:transp_ti[*,idx], $
-          vtor:transp_omega[*,idx],zeff:transp_zeff[*,idx],err:0} 
+          omega:transp_omega[*,idx],zeff:transp_zeff[*,idx],err:0} 
 return,profiles
 
 END

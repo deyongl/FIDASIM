@@ -11,7 +11,7 @@ FUNCTION d3d_profiles,inputs,save=save
     ;;   ZEFF            DOUBLE    Array[120]
 
 
-	;;CREATE FILENAMES 
+	;;CREATE FILENAMES
 	time_str='00000'+strtrim(string(long(inputs.time*1000)),1)
 	time_str=strmid(time_str,4,/reverse_offset)
 	shot_str=strtrim(string(inputs.shot),1)
@@ -27,8 +27,8 @@ FUNCTION d3d_profiles,inputs,save=save
 	te_string=dir+'dte'+profile_str
 	ti_string=dir+'dti'+profile_str
 	imp_string=dir+'dimp'+profile_str+'_Carbon'
-	vtor_string=dir+'dtrot'+profile_str
-	
+	omega_string=dir+'dtrot'+profile_str
+
 	;;CHECK IF FILES EXIST
 	file_array=[ne_string,te_string,ti_string,imp_string,vtor_string]
 	err_array=dblarr(n_elements(file_array))
@@ -47,39 +47,41 @@ FUNCTION d3d_profiles,inputs,save=save
 		restore,ne_string
 		dene=ne_str.dens*10.0d^(19.0d) ;;m^-3
 		dene_rho=ne_str.rho_dens
-	
+
 		;;RESTORE ELECTRON TEMPERATURE
 		restore,te_string
 		te=te_str.te*10.0d^(3.0d) ;;eV
 		te_rho=te_str.rho_te
-		
+
 		;;RESTORE ION TEMPERATURE
 		restore,ti_string
 		ti=ti_str.ti*10.0d^(3.0d) ;;eV
 		ti_rho=ti_str.rho_ti
-	
+
 		;;RESTORE ZEFF
 		restore,imp_string
 		zeff=impdens_str.zeff
 		zeff_rho=impdens_str.rho_imp
 
-		;;RESTORE VTOR
-		restore,vtor_string
-		vtor=tor_rot_str.tor_rot_local ;rad/s
-		vtor_rho=tor_rot_str.rho_tor_rot		
+		;;RESTORE OMEGA
+		restore,omega_string
+		omega=tor_rot_str.tor_rot_local ;rad/s
+		omega_rho=tor_rot_str.rho_tor_rot
+
 		;;INTERPOLATE SO THAT ALL USE THE SAME RHO
-		maxrho=min([dene_rho[-1],te_rho[-1],ti_rho[-1],zeff_rho[-1],vtor_rho[-1]])
+		maxrho=min([dene_rho[-1],te_rho[-1],ti_rho[-1],zeff_rho[-1],omega_rho[-1]])
 		rho=maxrho*dindgen(121)/121.0
 
 		dene=interpol(dene,dene_rho,rho) > 0.0
-		te=interpol(te,te_rho,rho) > 0.0 
-		ti=interpol(ti,ti_rho,rho) > 0.0 
+		te=interpol(te,te_rho,rho) > 0.0
+		ti=interpol(ti,ti_rho,rho) > 0.0
 		zeff=interpol(zeff,zeff_rho,rho) > 1.0
-		vtor=interpol(vtor,vtor_rho,rho) 
+		vtor=interpol(vtor,omega_rho,rho)
 
 		;;SAVE IN PROFILE STRUCTURE
-		profiles={rho:rho,te:te,ti:ti,vtor:vtor,dene:dene,zeff:zeff,err:0}
+		profiles={rho:rho,te:te,ti:ti,omega:omega,dene:dene,zeff:zeff,err:0}
 	endelse
+	
 	if keyword_set(save) then save,profiles,filename=inputs.runid+'_profiles.sav'
 	return,profiles
 END

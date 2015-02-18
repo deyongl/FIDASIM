@@ -17,7 +17,7 @@ FUNCTION d3d_equil,inputs,grid,det
 
 	if gfiletest ne '' then begin
 		print,'Restoring equilbrium from gfile: ',gfile
-        if file_test(gfile,/EXECUTABLE)	then begin 
+        if file_test(gfile,/EXECUTABLE)	then begin
        	    restore,gfile
        	endif else g=readg(gfile)
 	endif else begin
@@ -40,7 +40,7 @@ FUNCTION d3d_equil,inputs,grid,det
 	psi=g.ssimag + dpsi*findgen(n_elements(g.epoten))
 	npot=n_elements(g.epoten)
 	epot=replicate(g.epoten[npot-1],n_elements(g.r),n_elements(g.z))
-	for i=0l,n_elements(g.r)-1 do begin 
+	for i=0l,n_elements(g.r)-1 do begin
 		for j=0l,n_elements(g.z)-1 do begin
 			psi1=g.psirz[i,j]
 			dum=min(abs(psi1-psi),kpsi)
@@ -50,11 +50,11 @@ FUNCTION d3d_equil,inputs,grid,det
 	; E = - grad(Phi)    EFIT units should be V/m
 	er=-(shift(epot,-1,0) - shift(epot,1,0))/(g.r[2]-g.r[0])
 	ez1=-(shift(epot,0,-1) - shift(epot,0,1))/(g.z[2]-g.z[0])
-	
+
 	;; Interpolate cylindrical fields onto (x,y,z) mesh then rotate vectors
 	bx=dblarr(grid.nx,grid.ny,grid.nz) & by=bx & bz=bx
-	ex=dblarr(grid.nx,grid.ny,grid.nz) & ey=ex & ez=ex	
-	
+	ex=dblarr(grid.nx,grid.ny,grid.nz) & ey=ex & ez=ex
+
 	for i=0L,grid.nx-1 do for j=0L,grid.ny-1 do for k=0L,grid.nz-1 do begin
 		rgrid=(.01*grid.r_grid[i,j,k] - g.r[0])/(g.r[1]-g.r[0]) ; in grid units
 		zgrid=(.01*grid.w_grid[i,j,k] - g.z[0])/(g.z[1]-g.z[0])    ; WWH 3/31/07
@@ -69,7 +69,7 @@ FUNCTION d3d_equil,inputs,grid,det
 		ex[i,j,k]=cph*ecylr
 		ey[i,j,k]=sph*ecylr
 	endfor
-	
+
 	if inputs.calc_brems eq 0 then begin
 		;;GET RHO VALUES ALONG LINE OF SIGHT
 		ds=.3    ; step size (cm)
@@ -77,14 +77,14 @@ FUNCTION d3d_equil,inputs,grid,det
 
 	    ;; Sightlines
 	    nchan=det.nchan
-	    x0=det.xlens   ; cm
-	    y0=det.ylens
-	    z0=det.zlens
+	    x0=det.ulens   ; cm
+	    y0=det.vlens
+	    z0=det.wlens
 	    v=fltarr(3,nchan)
 	    for i=0,nchan-1 do begin
-	        v[0,i]=det.xlos[i]-x0[i]
-	        v[1,i]=det.ylos[i]-y0[i]
-	        v[2,i]=det.zlos[i]-z0[i]
+	        v[0,i]=det.ulos[i]-x0[i]
+	        v[1,i]=det.vlos[i]-y0[i]
+	        v[2,i]=det.wlos[i]-z0[i]
 	        v[*,i]=v[*,i]/sqrt(v[0,i]^2+v[1,i]^2+v[2,i]^2)
 	    endfor
 		rhospath=dblarr(ns,nchan)
@@ -93,7 +93,7 @@ FUNCTION d3d_equil,inputs,grid,det
 	        x=x0[i] + v[0,i]*ds*findgen(ns)  ; cm
 	        y=y0[i] + v[1,i]*ds*findgen(ns)
 	        z=z0[i] + v[2,i]*ds*findgen(ns)
-	
+
 	        rmajvals=(x^2.+y^2.)^.5  ; major radii of all points along ray
 			rhospath[*,i]=rho_rz(g,rmajvals/100.,z/100.,/do_linear)
 	    endfor  ; channel loop
@@ -101,7 +101,7 @@ FUNCTION d3d_equil,inputs,grid,det
 		rho_chords={rhos:rhospath,ds:ds}
 	endif else rho_chords={rhos:0,ds:0}
 
-	equil={g:g,rho_grid:rhogrid,rho_chords:rho_chords,bx:bx,by:by,bz:bz,ex:ex,ey:ey,ez:ez,err:0}
+	equil={g:g,rho_grid:rhogrid,rho_chords:rho_chords,bu:bx,bv:by,bw:bz,eu:ex,ev:ey,ew:ez,err:0}
 	GET_OUT:
 	return,equil
 END

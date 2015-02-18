@@ -26,12 +26,12 @@ PRO nstx_plots,inputs,grid,nbi,chords,fida,equil,nbgeom,plasma
 
     los=fida.los
 	for i=0,fida.nchan-1 do $
-		oplot,chords.xlens[los[i]]+[0,2*(chords.xlos[los[i]]-chords.xlens[los[i]])],$
-        chords.ylens[los[i]]+[0,2*(chords.ylos[los[i]]-chords.ylens[los[i]])],$
+		oplot,chords.ulens[los[i]]+[0,2*(chords.ulos[los[i]]-chords.ulens[los[i]])],$
+        chords.vlens[los[i]]+[0,2*(chords.vlos[los[i]]-chords.vlens[los[i]])],$
         color=50
 
-	src=nbi.xyz_src
-	pos=(nbi.xyz_pos-nbi.xyz_src)*1000+nbi.xyz_src
+	src=nbi.uvw_src
+	pos=(nbi.uvw_pos-nbi.uvw_src)*1000+nbi.uvw_src
 	oplot,[src[0],pos[0]],[src[1],pos[1]],thick=2,color=230
 
 	w=where(g.bdry[0,*] gt 0.)
@@ -43,28 +43,28 @@ PRO nstx_plots,inputs,grid,nbi,chords,fida,equil,nbgeom,plasma
 	oplot,rmax*cos(phi),rmax*sin(phi),color=150
 
 	;----------------------------------------------
-	;;PLOT CROSS SECTION BEAM AND CHORDS 
+	;;PLOT CROSS SECTION BEAM AND CHORDS
 	window,1 & wset,1
 	plot,[0],[0],/nodata,xrange=[rmin,rmax], $
             yrange=100.*[-1,1],$
 			color=0,background=255,title='ELEVATION',xtitle='R [cm]',ytitle='Z [cm]'
 
-	oplot,grid.r_grid,grid.w_grid,psym=3,color=0  
+	oplot,grid.r_grid,grid.w_grid,psym=3,color=0
 
 	; Lines of sight
 	for i=0,fida.nchan-1 do begin
-		if chords.zlos[los[i]] ne chords.zlens[los[i]] then begin
-			z=(chords.zlos[los[i]]-chords.zlens[los[i]])*findgen(201)/100.+chords.zlens[los[i]]
-			x=(chords.xlos[los[i]]-chords.xlens[los[i]])*(z-chords.zlens[los[i]])/ $
-			  (chords.zlos[los[i]]-chords.zlens[los[i]]) + chords.xlens[los[i]]
-			y=(chords.ylos[los[i]]-chords.ylens[los[i]])*(z-chords.zlens[los[i]])/ $
-			  (chords.zlos[los[i]]-chords.zlens[los[i]]) + chords.ylens[los[i]]
+		if chords.wlos[los[i]] ne chords.wlens[los[i]] then begin
+			z=(chords.wlos[los[i]]-chords.wlens[los[i]])*findgen(201)/100.+chords.wlens[los[i]]
+			x=(chords.ulos[los[i]]-chords.ulens[los[i]])*(z-chords.wlens[los[i]])/ $
+			  (chords.wlos[los[i]]-chords.wlens[los[i]]) + chords.ulens[los[i]]
+			y=(chords.vlos[los[i]]-chords.vlens[los[i]])*(z-chords.wlens[los[i]])/ $
+			  (chords.wlos[los[i]]-chords.wlens[los[i]]) + chords.vlens[los[i]]
 			oplot,sqrt(x^2+y^2),z,color=50
-		endif else begin 
-    		y=(chords.ylos[los[i]]-chords.ylens[los[i]])*findgen(201)/100.+chords.ylens[los[i]]
-    		x=(chords.xlos[los[i]]-chords.xlens[los[i]])*(y-chords.ylens[los[i]])/ $
-      		  (chords.ylos[los[i]]-chords.ylens[los[i]]) + chords.ylens[los[i]]
-		    oplot,sqrt(x^2+y^2),replicate(chords.zlens[los[i]],201),color=50
+		endif else begin
+    		y=(chords.vlos[los[i]]-chords.vlens[los[i]])*findgen(201)/100.+chords.vlens[los[i]]
+    		x=(chords.ulos[los[i]]-chords.ulens[los[i]])*(y-chords.vlens[los[i]])/ $
+      		  (chords.vlos[los[i]]-chords.vlens[los[i]]) + chords.vlens[los[i]]
+		    oplot,sqrt(x^2+y^2),replicate(chords.wlens[los[i]],201),color=50
 		endelse
 	endfor
 
@@ -82,7 +82,7 @@ PRO nstx_plots,inputs,grid,nbi,chords,fida,equil,nbgeom,plasma
 	oplot,equil.rho_grid,plasma.denf,psym=3,color=250
   	plot,equil.rho_grid,plasma.zeff,psym=3,color=0,background=255,title='zeff',xtitle='rho',ytitle='zeff'
   	plot,equil.rho_grid,plasma.vtor,psym=3,color=0,background=255,title='vtor',xtitle='rho',ytitle='cm/s'
-	
+
 	;;PLOT VECTOR FIELDS
 ;	nnx=long(grid.nx/2) & nny=long(grid.ny/2)
 ;	indx=2*lindgen(nnx) & indy=2*lindgen(nny)

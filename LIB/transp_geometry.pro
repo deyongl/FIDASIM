@@ -1,5 +1,5 @@
 ;;PROCEDURE: transp_geometry
-;;DESCRIPTION: calculates xyz_src and xyz_pos from TRANSP geometry variables
+;;DESCRIPTION: calculates uvw_src and uvw_pos from TRANSP geometry variables
 ;;INPUTS:
 ;;  RTCENA: Radius of tangency point [cm]
 ;;  XLBAPA: Distance from center of beam source grid to aperture [cm]
@@ -12,9 +12,9 @@
 ;;  angle: Angle to add to XBZETA to rotate the beams into correct coordinates Ex. 90 for D3D,142.243 for NSTX
 ;;  plot: Plot the beam
 ;;OUTPUTS:
-;;  xyz_src: Beam source position in machine coordinates [cm]
-;;  xyz_pos: Point on beam line in vessel, halfway between aperture and tangency point
-PRO transp_geometry,RTCENA,XLBAPA,XLBTNA,XBZETA,XYBAPA,XYBSCA,NLCO,xyz_src,xyz_pos,angle=angle,plot=plot
+;;  uvw_src: Beam source position in machine coordinates [cm]
+;;  uvw_pos: Point on beam line in vessel, halfway between aperture and tangency point
+PRO transp_geometry,RTCENA,XLBAPA,XLBTNA,XBZETA,XYBAPA,XYBSCA,NLCO,uvw_src,uvw_pos,angle=angle,plot=plot
 
     if not keyword_set(angle) then angle=0
     if n_elements(RTCENA) gt 1 then begin
@@ -34,17 +34,17 @@ PRO transp_geometry,RTCENA,XLBAPA,XLBTNA,XBZETA,XYBAPA,XYBSCA,NLCO,xyz_src,xyz_p
     beta_s=acos(RTCENA/rs)
     beta_a=acos(RTCENA/ra)
     phi_a=phi_s+NLCO*(beta_s-beta_a)
-    
+
     transp_src=[rs*cos(phi_s),rs*sin(phi_s),zs]
-    xyz_src=[ra*cos(phi_a),ra*sin(phi_a),za]
-    dir=(xyz_src-transp_src)
+    uvw_src=[ra*cos(phi_a),ra*sin(phi_a),za]
+    dir=(uvw_src-transp_src)
     dir=dir/sqrt(total(dir*dir))
-    xyz_pos=xyz_src+dir*(dat/2.0)
-    
+    uvw_pos=uvw_src+dir*(dat/2.0)
+
     if keyword_set(plot) then begin
-        plot,[transp_src[0],xyz_pos[0]],[transp_src[1],xyz_pos[1]],$
-             xrange=1.05*[-xyz_src[0],xyz_src[0]],$
-             yrange=1.05*[-xyz_src[1],xyz_src[1]]
+        plot,[transp_src[0],uvw_pos[0]],[transp_src[1],uvw_pos[1]],$
+             xrange=1.05*[-uvw_src[0],uvw_src[0]],$
+             yrange=1.05*[-uvw_src[1],uvw_src[1]]
     endif
     GET_OUT:
-END 
+END

@@ -6,22 +6,22 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 					   equil,$			;;OUTPUT: MAGNETIC GRID STRUCTURE
 					   err				;;OUTPUT: ERROR STATUS ERR=1 == SOMETHING WENT WRONG
 
-	
-	;;IN THIS SECTION YOU CAN USE WHATEVER ROUTINES 
+
+	;;IN THIS SECTION YOU CAN USE WHATEVER ROUTINES
 	;;YOU WANT SO LONG AS YOU DEFINE THE OUTPUT STRUCTURES
 	;;CONTAIN AT LEAST THE FOLLOWING TAGS
 
-	;;	IDL> help,chords 
+	;;	IDL> help,chords
 	;;	** Structure <1d447c48>, 11 tags, length=728, data length=724, refs=1:
 	;;	   NCHAN           LONG                11
 	;;	   DIAG            STRING    'OBLIQUE'
     ;;     CHAN_ID         LONG      Array[11]
-	;;	   XLOS            DOUBLE    Array[11]
-	;;	   YLOS            DOUBLE    Array[11]
-	;;	   ZLOS            DOUBLE    Array[11]
-	;;	   XLENS           DOUBLE    Array[11]
-	;;	   YLENS           DOUBLE    Array[11]
-	;;	   ZLENS           DOUBLE    Array[11]
+	;;	   ULOS            DOUBLE    Array[11]
+	;;	   VLOS            DOUBLE    Array[11]
+	;;	   WLOS            DOUBLE    Array[11]
+	;;	   ULENS           DOUBLE    Array[11]
+	;;	   VLENS           DOUBLE    Array[11]
+	;;	   WLENS           DOUBLE    Array[11]
 	;;	   SIGMA_PI_RATIO  DOUBLE    Array[11]
 	;;	   RA              FLOAT     Array[11]
 	;;	   RD              FLOAT     Array[11]
@@ -62,8 +62,8 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 	;;	   FULL            DOUBLE          0.54850105
 	;;	   HALF            DOUBLE          0.28972649
 	;;	   THIRD           DOUBLE          0.16177245
-	;;	   XYZ_SRC         DOUBLE    Array[3]
-	;;	   XYZ_POS         DOUBLE    Array[3]
+	;;	   UVW_SRC         DOUBLE    Array[3]
+	;;	   UVW_POS         DOUBLE    Array[3]
 	;;	   BMWIDRA         DOUBLE           6.0000000
 	;;	   BMWIDZA         DOUBLE           24.000000
 	;;	   DIVY            DOUBLE    Array[3]
@@ -74,20 +74,20 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 	;;FOR CONVINIENCE HERE ARE THE MINIMUM STRUCTURE DEFINITIONS
 	equil={rho_grid:rho_grid,$	   			;;FIDA GRID IN MAGNETIC FLUX COORDINATES (RHO)
 		   rho_chords:rho_chords,$			;;STRUCTURE CONTAINING AN ARRAY OF RHO VALUES AND STEP SIZE IN [cm]
-		   bx:bx,$					   		;;X MAGNETIC FIELD COMPONENT AT GRID POINTS
-		   by:by,$					   		;;Y MAGNETIC FIELD COMPONENT AT GRID POINTS
-		   bz:bz,$					   		;;Z MAGNETIC FIELD COMPONENT AT GRID POINTS
-		   ex:ex,$							;;X ELECTRIC FIELD COMPONENT AT GRID POINTS
-		   ey:ey,$							;;Y ELECTRIC FIELD COMPONENT AT GRID POINTS
-		   ez:ez }							;;Z ELECTRIC FIELD COMPONENT AT GRID POINTS
+		   bu:bu,$					   		;;U MAGNETIC FIELD COMPONENT AT GRID POINTS
+		   bv:bv,$					   		;;V MAGNETIC FIELD COMPONENT AT GRID POINTS
+		   bw:bw,$					   		;;W MAGNETIC FIELD COMPONENT AT GRID POINTS
+		   eu:eu,$							;;U ELECTRIC FIELD COMPONENT AT GRID POINTS
+		   ev:ev,$							;;V ELECTRIC FIELD COMPONENT AT GRID POINTS
+		   ew:ew }							;;W ELECTRIC FIELD COMPONENT AT GRID POINTS
 
 	nbi={einj:einj,$				   		;;BEAM INJECTION ENERGY [keV]
 		 pinj:pinj,$				   		;;BEAM INJECTION POWER  [MW]
 		 full:full,$				   		;;FULL BEAM FRACTION
 		 half:half,$				   		;;HALF BEAM FRACTION
 		 third:third,$				   		;;THIRD BEAM FRACTION
-		 xyz_src:xyz_src,$			   		;;POSITION OF BEAM SOURCE IN MACHINE COORDINATES [cm]
-		 xyz_pos:xyz_pos,$			   		;;BEAM CROSSOVER POINT IN MACHINE COORDINATES [cm]
+		 uvw_src:uvw_src,$			   		;;POSITION OF BEAM SOURCE IN MACHINE COORDINATES [cm]
+		 uvw_pos:uvw_pos,$			   		;;BEAM CROSSOVER POINT IN MACHINE COORDINATES [cm]
 		 bmwidra:bmwidra,$			   		;;HORIZONTAL BEAM WIDTH [cm]
 		 bmwidza:mbwidza,$			   		;;VERTICAL BEAM WIDTH   [cm]
 		 focy:focy,$				   		;;HORIZONTAL FOCAL LENGTH [cm]
@@ -98,21 +98,21 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
   	chords={sigma_pi_ratio:sigma_pi_ratio,$	;;RATIO OF SIGMA LINES TO PI LINES  (0 IF NPA)
 		 nchan:nchan,$				  		;;NUMBER OF CHANNELS
          chan_id:chan_id,$                  ;;CHANNEL ID (0 FOR FIDA,1 FOR NPA)
-		 xmid:xmid,$						;;X POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
-		 ymid:ymid,$						;;Y POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
-         zmid:zmid,$						;;Z POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
-		 xlens:xlens,$						;;X POS. OF LENS/APERTURE [cm]
-		 ylens:ylens,$						;;Y POS. OF LENS/APERTURE [cm]
- 		 zlens:zlens,$						;;Z POS. OF LENS/APERTURE [cm]
-  		 ra:ra,$				            ;;RADIUS OF APERTURE [cm] (0 IF FIDA)
-  		 rd:rd,$				            ;;RADIUS OF DETECTOR [cm] (0 IF FIDA)
+		 umid:umid,$						;;U POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
+		 vmid:vmid,$						;;V POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
+         wmid:wmid,$						;;W POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
+		 ulens:ulens,$						;;U POS. OF LENS/APERTURE [cm]
+		 vlens:vlens,$						;;V POS. OF LENS/APERTURE [cm]
+		 wlens:wlens,$						;;W POS. OF LENS/APERTURE [cm]
+		 ra:ra,$				            ;;RADIUS OF APERTURE [cm] (0 IF FIDA)
+		 rd:rd,$				            ;;RADIUS OF DETECTOR [cm] (0 IF FIDA)
 		 h:h}		                        ;;SEPERATION BETWEEN DETECTOR AND APERTURE [cm] (0 IF FIDA)
 
 	profiles={time:time,$					;;SHOT TIME
 			  rho:rho,$						;;RHO VALUES
 			  ti:ti,$						;;ION TEMPERATURE [eV]
-			  vtor:vtor,$					;;TORODIAL ANGULAR VELOCITY [rad/s]
+			  omega:omega,$					;;TORODIAL ANGULAR VELOCITY [rad/s]
 			  te:te,$						;;ELECTRON TEMPERATURE [eV]
 			  dene:dene,$					;;ELECTRON DENSITY [m^-3]
 			  zeff:zeff}					;;ZEFF
-END 
+END
