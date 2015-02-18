@@ -1,29 +1,29 @@
 # FIDASIM
-FIDASIM is a code that models the signal that is produced by charge-exchange reactions between fast-ions and injected neutral beams in tokamak plasmas. 
+FIDASIM is a code that models the signal that is produced by charge-exchange reactions between fast-ions and injected neutral beams in tokamak plasmas.
 It was originally developed in IDL at UC Irvine [1] and converted to Fortran 90 by Benedikt Geiger (AUGD) [2]. The model is described in Comm. Comp. Phys. 10 (2011) 716. The halo algorithm was improved by Geiger; a weight function calculation was also added.
 
 [1] Heidbrink, W. W., et al. "A code that simulates fast-ion D-alpha and neutral particle measurements." Comm. Comp. Phys. 10 (2011) 716.
 
-[2] Geiger, Benedikt. "Fast-ion transport studies using FIDA spectroscopy at the ASDEX Upgrade tokamak." Diss. lmu, 2013. APA	
+[2] Geiger, Benedikt. "Fast-ion transport studies using FIDA spectroscopy at the ASDEX Upgrade tokamak." Diss. lmu, 2013. APA
 
 
 ***
 
-# How to Install 
+# How to Install
 ## 1. Install dependencies
 FIDASIM reads and writes netCDF files. This requires netCDF-4.1.3 or earlier. You can download the library from [here](http://www.unidata.ucar.edu/downloads/netcdf/netcdf-4_1_3/index.jsp)
 
-Note: By default netCDF will build using the GNU Fortran compiler, gfortran. If you plan to use the Intel Fortran compiler you must also build the 
+Note: By default netCDF will build using the GNU Fortran compiler, gfortran. If you plan to use the Intel Fortran compiler you must also build the
 netCDF library using it. Instructions on how to do this can be found [here](http://software.intel.com/en-us/articles/performance-tools-for-software-developers-building-netcdf-with-the-intel-compilers).
 Also, netCDF has the option of using HDF5 data format. This, naturally, requires the HDF5 libraries. If you do not have access to the HDF5 libraries netCDF can be built without it.
 
 ## 2. Retrieve FIDASIM source code from GitHub
-Clone the git repository from GitHub and change to the source directory: 
+Clone the git repository from GitHub and change to the source directory:
 
     git clone https://github.com/D3DEnergetic/FIDASIM.git FIDASIM
-    cd FIDASIM 
+    cd FIDASIM
 
-## 3. Compile 
+## 3. Compile
 FIDASIM will not compile out of the box. You will first need to set the following environmental variables to point to the netCDF and install directories. I recommend having this automatically be done at startup.
 
 For tsch shell:
@@ -35,7 +35,7 @@ For tsch shell:
     setenv LD_LIBRARY_PATH "/path/to/netcdf/install/lib":{$LD_LIBRARY_PATH}
     setenv LD_LIBRARY_PATH "/path/to/netcdf/install/include":{$LD_LIBRARY_PATH}
     setenv PATH {$FIDASIM_DIR}LIB:{$PATH}
-    
+
 For bash shell:
 
     export FIDASIM_DIR=/path/to/fidasim/install/    #don't forget the last slash
@@ -53,7 +53,7 @@ The last step is the run make in the source directory
     make
 
 ## 4. Run a test case
-Edit the variable ```result_dir``` in the file ```TEST/D3D/149088H06_inputs.dat``` to the correct file path. Then from the install directory run 
+Edit the variable ```result_dir``` in the file ```TEST/D3D/149088H06_inputs.dat``` to the correct file path. Then from the install directory run
 
     fidasim TEST/D3D/146088H06_inputs.dat
 
@@ -64,11 +64,11 @@ Cerview routines are needed to run prefida. Add the commands located in ```D3D/d
 ```bash
 venus ~ $ idl D3D/d3d_startup.pro
 ```
- 
+
 FIDASIM currently does not run on the venus cluster since it does not have the required libraries.
 
 ### NSTX-U
-* To access the git repository and to use the Intel compiler add the following lines to your .login file before the pathscale module is loaded. 
+* To access the git repository and to use the Intel compiler add the following lines to your .login file before the pathscale module is loaded.
 
 ```
 
@@ -89,7 +89,7 @@ module load python/scipy
 ## 1. Create an input file
 Prefida, the FIDASIM preprocessing routine, reads in a JSON file that contains the input parameters. An example for DIII-D is shown below.
 Note: There may be some small differences depending on your device.
-Note: JSON input file only runs on IDL v8.2 and above. If you don't have a compatible version see `TEMPLATES/input_template.pro` 
+Note: JSON input file only runs on IDL v8.2 and above. If you don't have a compatible version see `TEMPLATES/input_template.pro`
 ```python
 ##-----------------------------------------------------
 ##                PREFIDA INPUT FILE
@@ -97,18 +97,18 @@ Note: JSON input file only runs on IDL v8.2 and above. If you don't have a compa
 {
 "comment":"This is a comment"
 "shot":146088,          ## Shot Number
-"time":1.385,           ## Time 
+"time":1.385,           ## Time
 "runid":"146088H05",    ## runid of FIDASIM
 "device":"D3D",         ## "D3D","NSTX","AUGD","MAST"
-"result_dir":"/u/stagnerl/FIDASIM/RESULTS/D3D/",           
+"result_dir":"/u/stagnerl/FIDASIM/RESULTS/D3D/",
                         ## Location where results will be stored
-"profile_dir":"/u/heidbrin/OANB/AUG/",                     
+"profile_dir":"/u/heidbrin/OANB/AUG/",
                         ## Location of profile files
 
 ##-----------------------------------------------------
 ## Fast-ion distribution function from transp
 ##-----------------------------------------------------
-"cdf_file":"/e/alfven/FIDAsim/D3D/146088/146088H02_fi_9.cdf",    
+"cdf_file":"/e/alfven/FIDAsim/D3D/146088/146088H02_fi_9.cdf",
                         ## CDF file from transp with the distribution funciton
 "emin":0.0,             ## Minimum energy used from the distribution function
 "emax":100.0,           ## Maximum energy used from the distribution function
@@ -127,7 +127,7 @@ Note: JSON input file only runs on IDL v8.2 and above. If you don't have a compa
 ##-----------------------------------------------------
 ## Discharge Parameters
 ##-----------------------------------------------------
-"btipsign":-1.0,        ## Bt and Ip are in the opposite direction   
+"btipsign":-1.0,        ## Bt and Ip are in the opposite direction
 "ab":2.01410178,        ## Atomic mass of beam [u]
 "ai":2.01410178,        ## Atomic mass of hydrogenic plasma ions [u]
 "impurity_charge":6,    ## 5: BORON, 6: carbon, 7: Nitrogen
@@ -135,10 +135,20 @@ Note: JSON input file only runs on IDL v8.2 and above. If you don't have a compa
 ##-----------------------------------------------------
 ## Wavelength Grid
 ##-----------------------------------------------------
-"lambdamin":647.0,      ## Minimum wavelength of wavelength grid [nm] 
-"lambdamax":667.0,      ## Maximum wavelength of wavelength grid [nm] 
+"lambdamin":647.0,      ## Minimum wavelength of wavelength grid [nm]
+"lambdamax":667.0,      ## Maximum wavelength of wavelength grid [nm]
 "nlambda":2000,         ## Number of wavelengths
 "dlambda":0.01,         ## Wavelength seperation
+
+##-----------------------------------------------------
+## 2D Interpolation Grid in machine coordinates (r,w)
+##-----------------------------------------------------
+"nr":100,               ## Number of cells in radial direction
+"nw":100,               ## Number of cells in w direction
+"rmin":90,              ## Minimum r value [cm]
+"rmax":230,             ## Maximum r value [cm]
+"wmin":-100,            ## Minimum w value [cm]
+"wmax":100,             ## Maximum w value [cm]
 
 ##---------------------------------------------------
 ## Define FIDASIM grid in machine coordinates(x,y,z)
@@ -153,26 +163,26 @@ Note: JSON input file only runs on IDL v8.2 and above. If you don't have a compa
 "zmin":-70.0,           ## Minimum z value
 "zmax":70.0,            ## Maximum z value
 
-"origin":[0,0,0],       ## If using different a coordinate system, this is the origin 
+"origin":[0,0,0],       ## If using different a coordinate system, this is the origin
                         ## in machine coordinates of the new system
 
 "alpha":0.0,            ## Rotation angle in radians from +x about z axis that transforms machine
-                        ## coordinates to the new system. 
+                        ## coordinates to the new system.
 "beta":0.0,             ## Rotation about +y axis
 
 ##--------------------------------------------------
 ## Define number of Monte Carlo particles
 ##--------------------------------------------------
-"nr_fast":5000000,      ## FIDA
-"nr_nbi":50000,         ## Beam emission
-"nr_halo":500000,       ## Halo contribution
+"n_fast":5000000,      ## FIDA
+"n_nbi":50000,         ## Beam emission
+"n_halo":500000,       ## Halo contribution
 
 ##--------------------------------------------------
 ## Calculation of the weight function
 ##--------------------------------------------------
-"ne_wght":50,               ## Number of Energies 
-"np_wght":50,               ## Number of Pitches 
-"nphi_wght":50,             ## Number of Gyro-angles 
+"ne_wght":50,               ## Number of Energies
+"np_wght":50,               ## Number of Pitches
+"nphi_wght":50,             ## Number of Gyro-angles
 "emax_wght":125.0,          ## Maximum energy (keV)
 "ichan_wght":-1,            ## -1 for all channels", otherwise a given channel index
 "dwav_wght":0.2,            ## Wavelength interval
@@ -188,7 +198,7 @@ Note: JSON input file only runs on IDL v8.2 and above. If you don't have a compa
 "calc_brems":0,         ## (0 or 1) If 0 use the IDL bremstrahlung calculation
 "calc_fida_wght":1,     ## (0 or 1) If 1 then fida weight functions are calculated
 "calc_npa_wght":0,      ## (0 or 1) If 1 then npa weight functions are calculated
-"load_neutrals":0,      ## (0 or 1) If 1 then the neutral density is loaded from an existing run 
+"load_neutrals":0,      ## (0 or 1) If 1 then the neutral density is loaded from an existing run
 "load_fbm":1,           ## (0 or 1) If 1 then the fbm is loaded (calc_spec/npa overwrites)
 "interactive":0         ## (0 or 1) If 1 then percent complete is shown
 
@@ -209,7 +219,7 @@ Prefida pulls in the required profiles and geometry and puts them into netCDF fi
 
 This will make an FORTRAN namelist file and a netCDF inputs file in the result directory. It will also copy the input file into the same directory.
 
-Note: prefida can take two keywords: plot and save. 
+Note: prefida can take two keywords: plot and save.
 
 ## Run FIDASIM
 
@@ -230,22 +240,22 @@ The netCDF files can be read by using the IDL routine ```read_ncdf.pro``` or ```
 
 # How do make FIDASIM work for your device
 FIDASIM is device agnostic. This means that it doesn't care what your machine is so long as it can read in the needed information.
-Prefida, the FIDASIM preprocessing routine, is also device agnostic. It can accomplish this by delegating device-specific routines to other programs. 
+Prefida, the FIDASIM preprocessing routine, is also device agnostic. It can accomplish this by delegating device-specific routines to other programs.
 In other words, prefida is modular. This allows users to use device-specific routines to prepare the data as long as it delivers the results to prefida in the specified format.
-This can best be described with an example. 
+This can best be described with an example.
 
 Say I have a device called ABCD, which stands for "A Big Cylindrical Device". I want FIDASIM to work with it, so in the source directory I make an ABCD directory.
 
     mkdir ABCD
-    
+
 That directory will hold all of the code that is specific to ABCD. From the TEMPLATES/ directory I copy device_routines.pro into the ABCD directory and rename
 it abcd_routines.pro
 
     cp TEMPLATES/device_routines.pro ABCD/abcd_routines.pro
-    
+
 Prefida will look for this routine when it runs with the DEVICE input set to "ABCD". Opening it up I see the following
 
-```
+```idl
 ;;RENAME TO "DEVICE"_ROUTINES I.E. D3D_ROUTINES AND RENAME FILE ACCORDINGLY
 PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT CHANGE
 					   nbi,$ 			;;OUTPUT: NEUTRAL BEAM INJECTION INFO STRUCTURE
@@ -254,22 +264,22 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 					   equil,$			;;OUTPUT: MAGNETIC GRID STRUCTURE
 					   err				;;OUTPUT: ERROR STATUS ERR=1 == SOMETHING WENT WRONG
 
-	
-	;;IN THIS SECTION YOU CAN USE WHATEVER ROUTINES 
+
+	;;IN THIS SECTION YOU CAN USE WHATEVER ROUTINES
 	;;YOU WANT SO LONG AS YOU DEFINE THE OUTPUT STRUCTURES
 	;;CONTAIN AT LEAST THE FOLLOWING TAGS
 
-	;;	IDL> help,chords 
+	;;	IDL> help,chords
 	;;	** Structure <1d447c48>, 11 tags, length=728, data length=724, refs=1:
 	;;	   NCHAN           LONG                11
 	;;	   DIAG            STRING    'OBLIQUE'
 	;;	   CHAN_ID         LONG      Array[11]
-	;;	   XLOS            DOUBLE    Array[11]
-	;;	   YLOS            DOUBLE    Array[11]
-	;;	   ZLOS            DOUBLE    Array[11]
-	;;	   XLENS           DOUBLE    Array[11]
-	;;	   YLENS           DOUBLE    Array[11]
-	;;	   ZLENS           DOUBLE    Array[11]
+	;;	   ULOS            DOUBLE    Array[11]
+	;;	   VLOS            DOUBLE    Array[11]
+	;;	   WLOS            DOUBLE    Array[11]
+	;;	   ULENS           DOUBLE    Array[11]
+	;;	   VLENS           DOUBLE    Array[11]
+	;;	   WLENS           DOUBLE    Array[11]
 	;;	   SIGMA_PI_RATIO  DOUBLE    Array[11]
 	;;	   RD              FLOAT     Array[11]
 	;;	   RA              FLOAT     Array[11]
@@ -279,12 +289,12 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 	;;	** Structure <1d474638>, 10 tags, length=6636160, data length=6636138, refs=1:
 	;;	   RHO_GRID        FLOAT     Array[40, 60, 50]
 	;;	   RHO_CHORDS      STRUCT    -> <Anonymous> Array[1]
-	;;	   BX              DOUBLE    Array[40, 60, 50]
-	;;	   BY              DOUBLE    Array[40, 60, 50]
-	;;	   BZ              DOUBLE    Array[40, 60, 50]
-	;;	   EX              DOUBLE    Array[40, 60, 50]
-	;;	   EY              DOUBLE    Array[40, 60, 50]
-	;;	   EZ              DOUBLE    Array[40, 60, 50]
+	;;	   BU              DOUBLE    Array[40, 60, 50]
+	;;	   BV              DOUBLE    Array[40, 60, 50]
+	;;	   BW              DOUBLE    Array[40, 60, 50]
+	;;	   EU              DOUBLE    Array[40, 60, 50]
+	;;	   EV              DOUBLE    Array[40, 60, 50]
+	;;	   EW              DOUBLE    Array[40, 60, 50]
 	;;	   ERR             INT              0
 
 	;;	IDL> help,equil.rho_chords
@@ -298,7 +308,7 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 	;;	   RHO             DOUBLE    Array[121]
 	;;	   TE              DOUBLE    Array[121]
 	;;	   TI              DOUBLE    Array[121]
-	;;	   VTOR            DOUBLE    Array[121]
+	;;	   OMEGA           DOUBLE    Array[121]
 	;;	   DENE            DOUBLE    Array[121]
 	;;	   ZEFF            DOUBLE    Array[121]
 	;;	   ERR             INT              0
@@ -310,8 +320,8 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 	;;	   FULL            DOUBLE          0.54850105
 	;;	   HALF            DOUBLE          0.28972649
 	;;	   THIRD           DOUBLE          0.16177245
-	;;	   XYZ_SRC         DOUBLE    Array[3]
-	;;	   XYZ_POS         DOUBLE    Array[3]
+	;;	   UVW_SRC         DOUBLE    Array[3]
+	;;	   UVW_POS         DOUBLE    Array[3]
 	;;	   BMWIDRA         DOUBLE           6.0000000
 	;;	   BMWIDZA         DOUBLE           24.000000
 	;;	   DIVY            DOUBLE    Array[3]
@@ -322,20 +332,20 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 	;;FOR CONVENIENCE HERE ARE THE MINIMUM STRUCTURE DEFINITIONS
 	equil={rho_grid:rho_grid,$	   			;;FIDA GRID IN MAGNETIC FLUX COORDINATES (RHO)
 		   rho_chords:rho_chords,$			;;STRUCTURE CONTAINING AN ARRAY OF RHO VALUES AND STEP SIZE IN [cm]
-		   bx:bx,$					   		;;X MAGNETIC FIELD COMPONENT AT GRID POINTS
-		   by:by,$					   		;;Y MAGNETIC FIELD COMPONENT AT GRID POINTS
-		   bz:bz,$					   		;;Z MAGNETIC FIELD COMPONENT AT GRID POINTS
-		   ex:ex,$							;;X ELECTRIC FIELD COMPONENT AT GRID POINTS
-		   ey:ey,$							;;Y ELECTRIC FIELD COMPONENT AT GRID POINTS
-		   ez:ez }							;;Z ELECTRIC FIELD COMPONENT AT GRID POINTS
+		   bu:bu,$					   		;;X MAGNETIC FIELD COMPONENT AT GRID POINTS
+		   bv:bv,$					   		;;Y MAGNETIC FIELD COMPONENT AT GRID POINTS
+		   bw:bw,$					   		;;Z MAGNETIC FIELD COMPONENT AT GRID POINTS
+		   eu:eu,$							;;X ELECTRIC FIELD COMPONENT AT GRID POINTS
+		   ev:ev,$							;;Y ELECTRIC FIELD COMPONENT AT GRID POINTS
+		   ew:ew }							;;Z ELECTRIC FIELD COMPONENT AT GRID POINTS
 
 	nbi={einj:einj,$				   		;;BEAM INJECTION ENERGY [keV]
 		 pinj:pinj,$				   		;;BEAM INJECTION POWER  [MW]
 		 full:full,$				   		;;FULL BEAM FRACTION
 		 half:half,$				   		;;HALF BEAM FRACTION
 		 third:third,$				   		;;THIRD BEAM FRACTION
-		 xyz_src:xyz_src,$			   		;;POSITION OF BEAM SOURCE IN MACHINE COORDINATES [cm]
-		 xyz_pos:xyz_pos,$			   		;;BEAM CROSSOVER POINT IN MACHINE COORDINATES [cm]
+		 uvw_src:uvw_src,$			   		;;POSITION OF BEAM SOURCE IN MACHINE COORDINATES [cm]
+		 uvw_pos:uvw_pos,$			   		;;BEAM CROSSOVER POINT IN MACHINE COORDINATES [cm]
 		 bmwidra:bmwidra,$			   		;;HORIZONTAL BEAM WIDTH [cm]
 		 bmwidza:mbwidza,$			   		;;VERTICAL BEAM WIDTH   [cm]
 		 focy:focy,$				   		;;HORIZONTAL FOCAL LENGTH [cm]
@@ -346,12 +356,12 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
   	chords={sigma_pi_ratio:sigma_pi_ratio,$	;;RATIO OF SIGMA LINES TO PI LINES  (0 IF NPA)
 		 nchan:nchan,$				  		;;NUMBER OF CHANNELS
          chan_id:chan_id,$                  ;;CHANNEL ID (0 FOR FIDA, 1 FOR NPA)
-		 xmid:xmid,$						;;X POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
-		 ymid:ymid,$						;;Y POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
-         zmid:zmid,$						;;Z POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
-		 xlens:xlens,$						;;X POS. OF LENS/APERTURE [cm]
-		 ylens:ylens,$						;;Y POS. OF LENS/APERTURE [cm]
- 		 zlens:zlens,$						;;Z POS. OF LENS/APERTURE [cm]
+		 umid:umid,$						;;X POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
+		 vmid:vmid,$						;;Y POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
+         wmid:wmid,$						;;Z POS. OF WHERE CHORD CROSSES MIDPLANE [cm]
+		 ulens:ulens,$						;;X POS. OF LENS/APERTURE [cm]
+		 vlens:vlens,$						;;Y POS. OF LENS/APERTURE [cm]
+ 		 wlens:wlens,$						;;Z POS. OF LENS/APERTURE [cm]
   		 ra:ra,$      				        ;;RADIUS OF NPA APERTURE [cm] (0 IF FIDA)
   		 rd:rd,$      				        ;;RADIUS OF NPA DETECTOR [cm] (0 IF FIDA)
 		 h:h}     		                    ;;SEPERATION BETWEEN APERTURE AND DETECTOR [cm] (0 IF FIDA)
@@ -359,20 +369,20 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 	profiles={time:time,$					;;SHOT TIME
 			  rho:rho,$						;;RHO VALUES
 			  ti:ti,$						;;ION TEMPERATURE [eV]
-			  vtor:vtor,$					;;TORODIAL ANGULAR VELOCITY [rad/s]
+			  omega:omega,$					;;TORODIAL ANGULAR VELOCITY [rad/s]
 			  te:te,$						;;ELECTRON TEMPERATURE [eV]
 			  dene:dene,$					;;ELECTRON DENSITY [m^-3]
 			  zeff:zeff}					;;ZEFF
-END 
+END
 ```
 As you can see it is all rather self-explanatory. All I need to do now to get ABCD to work with prefida is supply the above information.
 I can use whatever routines I want so long as the output of abcd_routines is defined as above. I could also include other things in the
-structures so long as I have the above. 
+structures so long as I have the above.
 
 Note: All positions in the device routines are in machine coordinates
 
 # Frequently Asked Questions
-### I get a segmentation fault when I run the code with multiple cores, but not when I only use one core. 
+### I get a segmentation fault when I run the code with multiple cores, but not when I only use one core.
 A segmentation fault happens when a code tries to access memory that it wasn't allocated. When a code runs in parallel each thread is allocated a certain amount of memory. Under certain conditions, i.e. a large grid, a thread runs out of room and tries to access more. This throws a seg fault. To increase this limit run the following:
 
 For tsch shell:
@@ -381,10 +391,10 @@ For tsch shell:
 For bash shell:
 
     ulimit -s unlimited
-    
+
 ### I have fixed your code. How do I submit a patch?
 FIDASIM is open source code. In order to contribute to the project please fork us on GitHub, create a new branch, and open a pull request. We will then review your changes and incorporate them into code base.
 
-### The plot keyword doesn't do anything. 
-Plotting, like the device routines, are often very specific to the device. Accordingly, plotting is treated the same way as the device routines. 
+### The plot keyword doesn't do anything.
+Plotting, like the device routines, are often very specific to the device. Accordingly, plotting is treated the same way as the device routines.
 Prefida will look for a routine called, using the nomenclature from above, abcd_plots.pro. A basic plot routine can be found in the TEMPLATES/ directory.
