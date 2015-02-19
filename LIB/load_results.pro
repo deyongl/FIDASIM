@@ -12,18 +12,18 @@ PRO load_results,runid,results,dir=dir,save=save
     inputs=read_ncdf(dir+input_file,vars=['shot','time'])
 
 	;;READ GRID
-    gridvars=['Nx','Ny','Nz','alpha','beta','origin',$
+    gridvars=['nx','ny','nz','alpha','beta','origin',$
               'x_grid','y_grid','z_grid',$
               'u_grid','v_grid','w_grid',$
               'phi_grid','r_grid','rho_grid','xx','yy','zz']
     grid=read_ncdf(dir+input_file,vars=gridvars)
 
 	;;READ LOS
-    losvars=['diagnostic','chan_id','Nchan','xlos','ylos','zlos','rlos',$
+    losvars=['diagnostic','chan_id','nchan','xlos','ylos','zlos','rlos',$
              'xlens','ylens','zlens','sigma_pi','h','rd','ra','los_wght']
 	los=read_ncdf(dir+input_file,vars=losvars)
 
-	;;READ PLASMA 
+	;;READ PLASMA
     pvars=['ti','te','dene','deni','denp','denf','vrotx','vroty','vrotz',$
            'zeff','bx','by','bz','ex','ey','ez','ai','impurity_charge','btipsign']
 	plasma=read_ncdf(dir+input_file,vars=pvars)
@@ -43,11 +43,11 @@ PRO load_results,runid,results,dir=dir,save=save
 	npa=read_ncdf(dir+runid+'_npa.cdf')
 
 	;;READ FBM
-    fbmvars=['FBM_time','FBM_Nenergy','FBM_Npitch','FBM_Ngrid',$
-             'FBM_r2d','FBM_z2d','FBM_bmvol','FBM','FBM_emin',$
-             'FBM_emax','FBM_energy','FBM_pmin','FBM_pmax','FBM_pitch']
+    fbmvars=['fbm_time','fbm_nenergy','fbm_npitch','fbm_ngrid',$
+             'fbm_r2d','fbm_z2d','fbm_bmvol','fbm','fbm_emin',$
+             'fbm_emax','fbm_energy','fbm_pmin','fbm_pmax','fbm_pitch']
 	fbm=read_ncdf(dir+input_file,vars=fbmvars)
-    if not fbm.err then fbm.FBM_pitch=fbm.FBM_pitch*plasma.btipsign
+    if not fbm.err then fbm.fbm_pitch=fbm.fbm_pitch*plasma.btipsign
 
 	;;READ FIDA WEIGHT FUNCTIONS
 	fida_weights=read_ncdf(dir+runid+'_fida_weights.cdf')
