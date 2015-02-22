@@ -1307,7 +1307,7 @@ contains
     enddo rejection_loop
 
     print*, 'rejection method found no solution!'
-    print*, cell(ac(1),ac(2),ac(3))%fbm
+    !print*, cell(ac(1),ac(2),ac(3))%fbm
   end subroutine mc_fastion
 
   !****************************************************************************
@@ -2495,6 +2495,9 @@ contains
     call matinv(eigvec, eigvec_inv)
     coef = matmul(eigvec_inv, states)!coeffs determined from states at t=0
     exp_eigval_dt = exp(eigval*dt)   ! to improve speed (used twice)
+    do n=1,nlevs
+       if(eigval(n).eq.0.0) eigval(n)=eigval(n)+1 !protect against dividing by zero
+    enddo
     states(:) = matmul(eigvec, coef * exp_eigval_dt)  ![neutrals/cm^3/s]!
     dens(:)   = matmul(eigvec,coef*(exp_eigval_dt-1.d0)/eigval)/nlaunch
 
@@ -2919,15 +2922,17 @@ contains
     papprox_tot=0.d0
     !! ------------- calculate papprox needed for guess of nlaunch --------!!
     do k=1,grid%Nz
-       do j=1,grid%Ny
-          do i=1,grid%Nx
-             papprox(i,j,k)=    (sum(result%neut_dens(i,j,k,:,nbif_type))  &
-                  +              sum(result%neut_dens(i,j,k,:,nbih_type))  &
-                  +              sum(result%neut_dens(i,j,k,:,nbit_type))) &
-                  *(cell(i,j,k)%plasma%denp-cell(i,j,k)%plasma%denf)
-             if(cell(i,j,k)%rho.lt.1.1)papprox_tot=papprox_tot+papprox(i,j,k)
-          enddo
-       enddo
+        do j=1,grid%Ny
+            do i=1,grid%Nx
+                if((cell(i,j,k)%plasma%denp-cell(i,j,k)%plasma%denf).gt.0) then
+                    papprox(i,j,k)=    (sum(result%neut_dens(i,j,k,:,nbif_type))  &
+                         +              sum(result%neut_dens(i,j,k,:,nbih_type))  &
+                         +              sum(result%neut_dens(i,j,k,:,nbit_type))) &
+                         *(cell(i,j,k)%plasma%denp-cell(i,j,k)%plasma%denf)
+                    if(cell(i,j,k)%rho.lt.1.1)papprox_tot=papprox_tot+papprox(i,j,k)
+                endif
+            enddo
+        enddo
     enddo
     call get_nlaunch(inputs%n_dcx,papprox,papprox_tot,nlaunch)
 
@@ -3028,7 +3033,7 @@ contains
     s1type=fida_type
     s2type=brems_type
     dcx_dens=sum(result%neut_dens(:,:,:,:,halo_type))
-    if(dcx_dens.eq.0)stop 'the denisty of DCX-neutrals is too small!'
+    if(dcx_dens.eq.0)stop 'the density of DCX-neutrals is too small!'
 
     result%neut_dens(:,:,:,:,s1type) = result%neut_dens(:,:,:,:,halo_type)
     iterations: do hh=1,20
