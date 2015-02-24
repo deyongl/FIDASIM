@@ -54,7 +54,20 @@ END
 
 PRO make_interpolating_grid,inputs,inter_grid,err
 
-    
+    err = 1
+    rr = inputs.rmin + ((inputs.rmax-inputs.rmin)/(inputs.nr-1))*dindgen(inputs.nr)
+    ww = inputs.wmin + ((inputs.wmax-inputs.wmin)/(inputs.nw-1))*dindgen(inputs.nw)
+
+    r2d = rr # replicate(1,inputs.nw)
+    w2d = replicate(1,inputs.nr) # ww
+
+    err = 0
+
+    inter_grid = {r2d:r2d,w2d:w2d,$
+                  rr:rr,ww:ww,$
+                  rmin:inputs.rmin,wmin:inputs.wmin,$
+                  rmax:inputs.rmax,wmax:inputs.wmax,$
+                  nr:inputs.nr,nw:inputs.nw,err:0}
 END
 
 PRO rotate_uvw,uvw,Arot,Brot,Crot,updown,xyz
@@ -123,42 +136,29 @@ PRO make_beam_grid,inputs,grid,err
     zmin=inputs.zmin
     zmax=inputs.zmax
 
-    ;Basic grid points
-    dx= (xmax-xmin) / double(nx)
-    dy= (ymax-ymin) / double(ny)
-    dz= (zmax-zmin) / double(nz)
-    ng=long(nx)*long(ny)*long(nz)     ;; nr of cells
+    ;Grid Spacing
+    dx= (xmax-xmin) / double(nx-1)
+    dy= (ymax-ymin) / double(ny-1)
+    dz= (zmax-zmin) / double(nz-1)
 
-    ;;cell borders
-    xx=dx*dindgen(nx)+xmin
-    yy=dy*dindgen(ny)+ymin
-    zz=dz*dindgen(nz)+zmin
+    ng=long(nx)*long(ny)*long(nz)     ;; number of cells
+
+    ;;Cell Centers
+    xc = dx*dindgen(nx)+xmin
+    yc = dy*dindgen(ny)+ymin
+    zc = dz*dindgen(nz)+zmin
 
     dr=[dx,dy,dz]
     drmin=min(dr)
     dv=dx*dy*dz
 
-    ;;cell centers
-    xxc=xx+0.5d0*dx & yyc=yy+0.5d0*dy & zzc=zz+0.5d0*dz
-    ;; Put the basic grid into 1D array (useful for libkk routines)
-    x=dblarr(ng) & y=dblarr(ng) & z=dblarr(ng)
-
-    for i=0L,nx-1 do for j=0L,ny-1 do for k=0L,nz-1 do begin
-        l=i+nx*j+nx*ny*k
-        x[l]=xx[i] & y[l]=yy[j] & z[l]=zz[k]
-    endfor
-
-    ;; Make the corresponding grid center arrays
-    xc=x+0.5d0*dx & yc=y+0.5d0*dy & zc=z+0.5d0*dz
-
     ;;Rotate all grid points to machine coordinates
-    rotate_points,x,y,z,Arot,Brot,Crot,u,v,w
     rotate_points,xc,yc,zc,Arot,Brot,Crot,uc,vc,wc
 
     ;;Change origin for rotated points
-    u+=inputs.origin[0] & uc+=inputs.origin[0]
-    v+=inputs.origin[1] & vc+=inputs.origin[1]
-    w+=inputs.origin[2] & wc+=inputs.origin[2]
+    uc+=inputs.origin[0]
+    vc+=inputs.origin[1]
+    wc+=inputs.origin[2]
 
     rgrid=sqrt(uc^2+vc^2)
     phigrid=atan(vc,uc)
@@ -173,9 +173,9 @@ PRO make_beam_grid,inputs,grid,err
         x_grid[i,j,k]=xc[l] & y_grid[i,j,k]=yc[l] & z_grid[i,j,k]=zc[l]
     endfor
 
-    grid={nx:nx,ny:ny,nz:nz,x:x,y:y,z:z,xx:xx,yy:yy,zz:zz,xc:xc,yc:yc,zc:zc,xxc:xxc,yyc:yyc,zzc:zzc,$
-          dx:dx,dy:dy,dz:dz,dr:dr,drmin:drmin,dv:dv,ng:ng,u:u,v:v,w:w,$
-          uc:uc,vc:vc,wc:wc,r_grid:r_grid,phi_grid:phi_grid,$
+    grid={nx:nx,ny:ny,nz:nz,xc:xc,yc:yc,zc:zc,uc:uc,vc:vc,wc:wc,$
+          dx:dx,dy:dy,dz:dz,dr:dr,drmin:drmin,dv:dv,ng:ng,$
+          r_grid:r_grid,phi_grid:phi_grid,$
           w_grid:w_grid,v_grid:v_grid,u_grid:u_grid,$
           x_grid:x_grid,y_grid:y_grid,z_grid:z_grid}
     err=0
@@ -228,60 +228,31 @@ PRO prepare_beam,inputs,nbi,nbgeom
     GET_OUT:
 END
 
-PRO los_track,coords,xyz_los_vec,xyspt,ri,tcell,cell,ncell
-    ri=xyspt
-    vn=xyz_los_vec
-    ;; zeros are not good!
-    index=where(vn eq 0,nind)
-    if nind gt 0 then vn[index]=0.0001
-    p=[0,0,0]
-    dummy = min( abs( coords.xxc - ri[0] ), index )
-    p[0]=index
-    dummy = min( abs( coords.yyc - ri[1] ), index )
-    p[1]=index
-    dummy = min( abs( coords.zzc - ri[2] ), index )
-    p[2]=index
+FUNCTION cube_intersect,rc,dr,r0,rf
+    vi = (rf-r0)
+    vi = vi/sqrt(total(vi*vi))
 
-    tcellh=fltarr(1000)
-    cellh=fltarr(3,1000)
-    m=0
-    cellh[*,m]=p
-    ;;loop along line of sight
-    while(m lt 1000) do begin
-        l=p
-        index=where(vn gt 0.d0)
-        if index[0] ne -1 then begin
-            l(index)=p(index)+1
+    side_inter = dblarr(6)
+    ipnts = dblarr(3,6)
+
+    for i=0L,5 do begin
+        j = fix(floor(i/2))
+        ind = [j eq 0, 2 - (j eq 2)]
+        if abs(vi[j]) gt 0 then begin
+            ipnts[*,i] = r0 + vi*( ( (rc[j] + ( (i mod 2)-0.5)*dr[j] ) - r0[j])/vi[j] )
+            if abs(ipnts[ind[0],i] - rc[ind[0]]) le 0.5*dr[ind[0]] and $
+               abs(ipnts[ind[1],i] - rc[ind[1]]) le 0.5*dr[ind[1]] then side_inter[i]=1
         endif
-        if l[0] gt coords.nx-1 or l[1] gt coords.ny-1 or $
-           l[2] gt coords.nz-1 then goto, out
-        ;;time needed to go into next cell
-        dt_arr=fltarr(3)
-        dt_arr[0] = ( coords.xx(l[0]) - ri[0] ) /vn[0]
-        dt_arr[1] = ( coords.yy(l[1]) - ri[1] ) /vn[1]
-        dt_arr[2] = ( coords.zz(l[2]) - ri[2] ) /vn[2]
-        dt=min(dt_arr,index)
-        ri[*] = ri[*] + vn[*]*dt
-        if vn[index] gt 0.d0 then begin
-            p[index]=p[index]+1
-        endif else begin
-            p[index]=p[index]-1
-        endelse
-        if p[0] lt 0 or p[1] lt 0 or p[2] lt 0 then goto, out
-        tcellh[m]=dt
-        m=m+1
-        cellh[*,m]=p[*]
-    endwhile
-    out:
-    ;; Store results into compressed arrays!
-    if m gt 1 then begin
-        tcell= tcellh[0:m-2]
-        cell = cellh[*,0:m-2]
+    endfor
+
+    w = where(side_inter ne 0,nw)
+    if nw ne 2 then begin
+        intersect = 0.0
     endif else begin
-        tcell = -1
-        cell = -1
+        intersect = sqrt( total( (ipnts[*,w[0]] - ipnts[*,w[1]])^2.0 ) )
     endelse
-    ncell=m-1
+
+    return, intersect
 END
 
 PRO fida_los_wght,grid,xlens,ylens,zlens,xlos,ylos,zlos,weight,err_arr
@@ -289,49 +260,32 @@ PRO fida_los_wght,grid,xlens,ylens,zlens,xlos,ylos,zlos,weight,err_arr
     nx=grid.nx
     ny=grid.ny
     nz=grid.nz
-    nchan=n_elements(xlens)
-    err_arr=dblarr(nchan)
-    weight  = replicate(0.d0,nx,ny,nz,nchan)
+    dr=grid.dr
 
-    for chan=0L, n_elements(xlens)-1 do  begin
+    nchan   = n_elements(xlens)
+    err_arr = dblarr(nchan)
+    weight  = dblarr(nx,ny,nz,nchan)
+
+    for chan=0L, nchan-1 do  begin
         xyzlens = [xlens[chan],ylens[chan],zlens[chan]]
         xyzlos  = [xlos[chan], ylos[chan], zlos[chan]]
-        vi    = xyzlos-xyzlens
-        dummy = max(abs(vi),ic)
-        nstep = fix(700./grid.dr[ic])
-        vi    = vi/sqrt(vi[0]^2+vi[1]^2+vi[2]^2) ;; unit vector
-        xyz_pos = xyzlens
 
-      ; find first grid cell
-        for i=0L,nstep do begin
-            xyz_pos[0] = xyz_pos[0] + grid.dr[ic] * vi[0]/abs(vi[ic])
-            xyz_pos[1] = xyz_pos[1] + grid.dr[ic] * vi[1]/abs(vi[ic])
-            xyz_pos[2] = xyz_pos[2] + grid.dr[ic] * vi[2]/abs(vi[ic])
-            if xyz_pos[0] gt grid.xx[0] and xyz_pos[0] lt grid.xx[nx-1]+grid.dx and $
-                xyz_pos[1] gt grid.yy[0] and xyz_pos[1] lt grid.yy[ny-1]+grid.dy and $
-                xyz_pos[2] gt grid.zz[0] and xyz_pos[2] lt grid.zz[nz-1]+grid.dz then begin
-                goto, out
-            endif
-        endfor
-        out:
-
-      ; determine cells along the LOS
-        if i lt nstep then begin
-            los_track,grid,vi,xyz_pos,rout,tcell,cell,ncell
-            if ncell gt 1 then begin
-                for jj=0L,ncell-1 do begin
-                    if finite(tcell[jj]) eq 0 then stop
-                    ;;  tcell is the length of the track (cm) as v is 1cm/s
-                    weight[cell[0,jj],cell[1,jj],cell[2,jj],chan]=tcell[jj]
+        for k=0,nz-1 do begin
+            for j=0,ny-1 do begin
+                for i=0,nx-1 do begin
+                    rc = [grid.xc[i],grid.yc[i],grid.zc[i]]
+                    weight[i,j,k,chan] = cube_intersect(rc,dr,xyzlens,xyzlos)
                 endfor
-            endif else begin
-                warn,'Channel #'+strtrim(string(chan),1)+' only crosses <= 1 cells'
-                err_arr[chan]=1
-            endelse
-        endif else begin
+            endfor
+        endfor
+
+        w = where(weight[*,*,*,chan] gt 0.0,nw)
+        if nw le 1 then begin
+            warn,'Channel #'+strtrim(string(chan),1)+' only crosses <= 1 cells'
             err_arr[chan]=1
-        endelse
+        endif
     endfor
+
     index=where(finite(weight) eq 0,nind)
     if nind gt 0 then begin
         warn,'FIDA los weight at index '+strcompress(string(index),/remove_all)+$
@@ -650,7 +604,7 @@ PRO prepare_profiles,inputs,profiles,plasma,err
     ;;Plasma rotation
     omega =   profiles.omega ; rad/s
 
-    ;; test if there are NANs or Infinites in the input profiels
+    ;; test if there are NANs or Infinites in the input profiles
     index=where(finite([ti,te,dene,denp,zeff,denp,deni]) eq 0,nind)
     if nind gt 0 then stop
 
