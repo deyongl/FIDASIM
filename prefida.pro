@@ -237,7 +237,7 @@ FUNCTION cube_intersect,rc,dr,r0,rf
 
     for i=0L,5 do begin
         j = fix(floor(i/2))
-        ind = [j eq 0, 2 - (j eq 2)]
+        ind = where([0,1,2] ne j)
         if abs(vi[j]) gt 0 then begin
             ipnts[*,i] = r0 + vi*( ( (rc[j] + ( (i mod 2)-0.5)*dr[j] ) - r0[j])/vi[j] )
             if abs(ipnts[ind[0],i] - rc[ind[0]]) le 0.5*dr[ind[0]] and $
@@ -246,10 +246,14 @@ FUNCTION cube_intersect,rc,dr,r0,rf
     endfor
 
     w = where(side_inter ne 0,nw)
-    if nw ne 2 then begin
+    if nw lt 2 then begin
         intersect = 0.0
     endif else begin
-        intersect = sqrt( total( (ipnts[*,w[0]] - ipnts[*,w[1]])^2.0 ) )
+        i = 0
+        while total(ipnts[*,w[0]] eq ipnts[*,w[i+1]]) eq 3 do begin
+            i=i+1
+        endwhile
+        intersect = sqrt( total( (ipnts[*,w[0]] - ipnts[*,w[i+1]])^2.0 ) )
     endelse
 
     return, intersect
