@@ -70,54 +70,86 @@ PRO make_interpolating_grid,inputs,inter_grid,err
                   nr:inputs.nr,nw:inputs.nw,err:0}
 END
 
-PRO rotate_uvw,uvw,Arot,Brot,Crot,updown,xyz
-    ;;rotate uvz by alpha alround z axis
-    if updown lt 0 then qrz=MATRIX_MULTIPLY(Arot,uvw)
-    if updown ge 0 then qrz=MATRIX_MULTIPLY(Brot,uvw)
-    ;; rotate qrz_ray by phi_box on xyz_coordinates
-    xyz=MATRIX_MULTIPLY(Crot,qrz)
-END
+PRO xyz_to_uvw,ALPHA,BETA,x,y,z, u,v,w, origin = origin
 
-PRO rotate_points,x0,y0,z0,Arot,Brot,Crot,xp,yp,zp
-    if size(x0,/n_dimensions) ne 1 then begin
-        x=reform(x0,n_elements(x0))
-        y=reform(y0,n_elements(y0))
-        z=reform(z0,n_elements(z0))
-    endif else begin
-        x=x0 & y=y0 & z=z0
-    endelse
-    xyz=transpose([[x],[y],[z]])
-    rotate_uvw,xyz,Arot,Brot,Crot,1,xyz_p
-    xp=transpose(xyz_p[0,*])
-    yp=transpose(xyz_p[1,*])
-    zp=transpose(xyz_p[2,*])
-    if size(x0,/n_dimensions) ne 1 then begin
-        xp=reform(xp,size(x0,/dimensions))
-        yp=reform(yp,size(y0,/dimensions))
-        zp=reform(zp,size(z0,/dimensions))
-    endif
-END
-
-PRO make_rot_mat,ALPHA,BETA,Arot,Brot,Crot
+    if not keyword_set(origin) then origin=[0.0,0.0,0.0]
     zero=0.d0
     one=1.d0
-    ;;transformation matrix to rotate on NBI box axis by ALPHA
-    Arot=dblarr(3,3)
-    Arot[0,0]= cos(BETA)   & Arot[0,1]= zero    & Arot[0,2]= sin(BETA)
-    Arot[1,0]= zero        & Arot[1,1]= one     & Arot[1,2]= zero
-    Arot[2,0]=-sin(BETA)   & Arot[2,1]= zero    & Arot[2,2]= cos(BETA)
-    ;; transformation matrix to rotate in vertical direction by beta
-    Brot=dblarr(3,3)
-    Brot[0,0]= cos(BETA)   & Brot[0,1]= zero    & Brot[0,2]= sin(BETA)
-    Brot[1,0]= zero        & Brot[1,1]= one     & Brot[1,2]= zero
-    Brot[2,0]=-sin(BETA)   & Brot[2,1]= zero    & Brot[2,2]= cos(BETA)
-    ;; Arot and Brot are exactly the same. I dont know why Ben Gieger had it
-    ;; but it will stay for now
-    ;; transformation matrix to rotate towards the xy-coordinate system
-    Crot=dblarr(3,3)
-    Crot[0,0]= cos(ALPHA) & Crot[0,1]=-sin(ALPHA) & Crot[0,2]= zero
-    Crot[1,0]= sin(ALPHA) & Crot[1,1]= cos(ALPHA) & Crot[1,2]= zero
-    Crot[2,0]= zero       & Crot[2,1]= zero       & Crot[2,2]= one
+    xyz = [[x],[y],[z]]
+
+    j = [[0.d0],[1.d0],[0.d0]]
+
+    ;; IDL is col,row
+    ;;Rz: axis rotation counter clockwise around +z axis
+    Rz = dblarr(3,3)
+    Rz[0,0] = cos(ALPHA) & Rz[1,0] =-sin(ALPHA) & Rz[2,0] = zero
+    Rz[0,1] = sin(ALPHA) & Rz[1,1] = cos(ALPHA) & Rz[2,1] = zero
+    Rz[0,2] = zero       & Rz[1,2] = zero       & Rz[2,2] = one
+
+    xyz_p = Rz##xyz
+    jp = Rz##j
+
+    ;;Rotate by Beta about jp
+    jpx = dblarr(3,3)
+    jpxjp = dblarr(3,3)
+
+    jpx[0,0] = zero  & jpx[1,0] =-jp[2] & jpx[2,0] = jp[1]
+    jpx[0,1] = jp[2] & jpx[1,1] = zero  & jpx[2,1] =-jp[0]
+    jpx[0,2] =-jp[1] & jpx[1,2] = jp[0] & jpx[2,2] = zero
+
+    jpxjp[0,0] = jp[0]^2.0   & jpxjp[1,0] = jp[0]*jp[1] & jpxjp[2,0] = jp[0]*jp[2]
+    jpxjp[0,1] = jp[0]*jp[1] & jpxjp[1,1] = jp[1]^2.0   & jpxjp[2,1] = jp[1]*jp[2]
+    jpxjp[0,2] = jp[0]*jp[2] & jpxjp[1,2] = jp[1]*jp[2] & jpxjp[2,2] = jp[2]^2.0
+
+    Rjp = cos(BETA)*IDENTITY(3,/double) + sin(BETA)*jpx + (1.0-cos(BETA))*jpxjp
+
+    uvw = Rjp##xyz_p
+
+    u = uvw[*,0] + origin[0]
+    v = uvw[*,1] + origin[1]
+    w = uvw[*,2] + origin[2]
+
+END
+
+PRO uvw_to_xyz,ALPHA,BETA,u,v,w,x,y,z,origin=origin
+
+    if not keyword_set(origin) then origin=[0.0,0.0,0.0]
+    zero=0.d0
+    one=1.d0
+
+    uvw = [[u-origin[0]],[v-origin[1]],[w-origin[2]]]
+
+    k = [[0.d0],[0.d0],[1.d0]]
+
+    ;; IDL is col,row
+    Ry = dblarr(3,3)
+    Ry[0,0] = cos(-BETA) & Ry[1,0] = zero & Ry[2,0] = sin(-BETA)
+    Ry[0,1] = zero       & Ry[1,1] = one  & Ry[2,1] = zero
+    Ry[0,2] =-sin(-BETA) & Ry[1,2] = zero & Ry[2,2] = cos(-BETA)
+
+    uvw_p = Ry##uvw
+    kp = Ry##k
+
+    ;;Rotate by alpha about kp
+    kpx = dblarr(3,3)
+    kpxkp = dblarr(3,3)
+
+    kpx[0,0] = zero  & kpx[1,0] =-kp[2] & kpx[2,0] = kp[1]
+    kpx[0,1] = kp[2] & kpx[1,1] = zero  & kpx[2,1] =-kp[0]
+    kpx[0,2] =-kp[1] & kpx[1,2] = kp[0] & kpx[2,2] = zero
+
+    kpxkp[0,0] = kp[0]^2.0   & kpxkp[1,0] = kp[0]*kp[1] & kpxkp[2,0] = kp[0]*kp[2]
+    kpxkp[0,1] = kp[0]*kp[1] & kpxkp[1,1] = kp[1]^2.0   & kpxkp[2,1] = kp[1]*kp[2]
+    kpxkp[0,2] = kp[0]*kp[2] & kpxkp[1,2] = kp[1]*kp[2] & kpxkp[2,2] = kp[2]^2.0
+
+    Rkp = cos(-ALPHA)*IDENTITY(3,/double) + sin(-ALPHA)*kpx + (1.0-cos(-ALPHA))*kpxkp
+
+    xyz = Rkp##uvw_p
+
+    x = xyz[*,0]
+    y = xyz[*,1]
+    z = xyz[*,2]
+
 END
 
 PRO make_beam_grid,inputs,grid,err
@@ -153,12 +185,7 @@ PRO make_beam_grid,inputs,grid,err
     dv=dx*dy*dz
 
     ;;Rotate all grid points to machine coordinates
-    rotate_points,xc,yc,zc,Arot,Brot,Crot,uc,vc,wc
-
-    ;;Change origin for rotated points
-    uc+=inputs.origin[0]
-    vc+=inputs.origin[1]
-    wc+=inputs.origin[2]
+    xyz_to_uvw,inputs.alpha,inputs.beta,xc,yc,zc,uc,vc,wc,origin=inputs.origin
 
     rgrid=sqrt(uc^2+vc^2)
     phigrid=atan(vc,uc)
@@ -191,21 +218,18 @@ PRO prepare_beam,inputs,nbi,nbgeom
         error,'The selected source #'+string(isource)+' is not on'
         goto, GET_OUT
     endif
-    uvw_src=nbi.uvw_src-inputs.origin
-    uvw_pos=nbi.uvw_pos-inputs.origin
-    uvw_origin=[0,0,0]-inputs.origin
 
-    make_rot_mat,-inputs.alpha,inputs.beta,Drot,Erot,Frot
-    rotate_uvw,uvw_src,Drot,Erot,Frot,1,xyz_src ;;rotate from machine to beam coordinates
-    rotate_uvw,uvw_pos,Drot,Erot,Frot,1,xyz_pos
-    rotate_uvw,uvw_origin,Drot,Erot,Frot,1,xyz_origin
-
-    xs=xyz_src[0] & ys=xyz_src[1] & zs=xyz_src[2]
-    xp=xyz_pos[0] & yp=xyz_pos[1] & zp=xyz_pos[2]
+    us = nbi.uvw_src[0] & vs = nbi.uvw_src[1] & ws = nbi.uvw_src[2]
+    up = nbi.uvw_pos[0] & vp = nbi.uvw_pos[1] & wp = nbi.uvw_pos[2]
+    uvw_to_xyz,inputs.alpha,inputs.beta,us,vs,ws,xs,ys,zs,origin=inputs.origin
+    uvw_to_xyz,inputs.alpha,inputs.beta,up,vp,wp,xp,yp,zp,origin=inputs.origin
+    xyz_src = [xs,ys,zs]
+    xyz_pos = [xp,yp,zp]
 
     dis=sqrt( (xs-xp)^2.0d +(ys-yp)^2.0d + (zs-zp)^2.0d)
-    BETA=double(asin((zp-zs)/dis))
-    ALPHA=double(atan((yp-ys),(xp-xs))-!DPI)
+    BETA=double(asin((zs-zp)/dis))
+    ALPHA=double(atan((yp-ys),(xp-xs)))
+
     print,'Beam injection start point in machine coordinates'
     print, nbi.uvw_src
     print,'Beam injection end point in machine coordinates'
@@ -216,15 +240,13 @@ PRO prepare_beam,inputs,nbi,nbgeom
     print, xyz_src
     print,'Beam injection end point in beam coordinates'
     print, xyz_pos
-    print,'Beam rotation angles as defined by fidasim.f90'
-    print,'Alpha: '
-    print,ALPHA/!pi*180,FORMAT='(F20.10)'
-    print,'Beta:'
-    print,BETA,FORMAT='(F20.10)'
-    ;;MAKE ROTATION MATRICES
-    make_rot_mat,ALPHA,BETA,Arot,Brot,Crot
+    print,'Grid rotation angles that would align it with the beam'
+    print,'Alpha'
+    print, ALPHA/!DPI*180,FORMAT='(F20.10)'
+    print,'Beta'
+    print, BETA/!DPI*180,FORMAT='(F20.10)'
 
-    nbgeom={isource:isource,alpha:ALPHA,beta:BETA,Arot:Arot,Brot:Brot,Crot:Crot,xyz_src:xyz_src,xyz_pos:xyz_pos,err:0}
+    nbgeom={isource:isource,alpha:ALPHA,beta:BETA,xyz_src:xyz_src,xyz_pos:xyz_pos,err:0}
     GET_OUT:
 END
 
@@ -400,13 +422,9 @@ PRO prepare_chords,inputs,grid,chords,fida
     ;;CALCULATE RADIUS IN MACHINE COORDINATES
     rlos=sqrt(chords.ulos^2.0 + chords.vlos^2.0)
 
-    ;;ROTATE CHORDS INTO BEAM COORDINATES
-    make_rot_mat,-inputs.alpha,inputs.beta,Arot,Brot,Crot
-    ulens=chords.ulens-inputs.origin[0] & ulos=chords.ulos-inputs.origin[0]
-    vlens=chords.vlens-inputs.origin[1] & vlos=chords.vlos-inputs.origin[1]
-    wlens=chords.wlens-inputs.origin[2] & wlos=chords.wlos-inputs.origin[2]
-    rotate_points,ulens,vlens,wlens,Arot,Brot,Crot,xlens,ylens,zlens
-    rotate_points,ulos,vlos,wlos,Arot,Brot,Crot,xlos,ylos,zlos
+    ;;ROTATE CHORDS INTO BEAM GRID COORDINATES
+    uvw_to_xyz,inputs.alpha,inputs.beta,ulens,vlens,wlens,xlens,ylens,zlens,origin=inputs.origin
+    uvw_to_xyz,inputs.alpha,inputs.beta,ulos,vlos,wlos,xlos,ylos,zlos,origin=inputs.origin
 
     ;;CALCULATE FIDA LOS WEIGHTS
     w=where(chords.chan_id eq 0,nw)
@@ -432,18 +450,21 @@ PRO prepare_chords,inputs,grid,chords,fida
         error,'No chords crossed the simulation grid'
         err=1
     endif else begin
-        print,strtrim(string(nw),1)+' out of '+strtrim(string(chords.nchan),1)+' chords crossed the simulation grid'
+        print,strtrim(string(nw),1)+' out of ' + strtrim(string(chords.nchan),1)+$
+              ' chords crossed the simulation grid'
         if nww ne 0 then begin
-            warn,'Missed indices: '+strcompress(strjoin(string(miss_los)))
-            warn, 'Missed chan_ids: '+strcompress(strjoin(string(chords.chan_id[miss_los],f='(i2)')))
+            warn,'Missed indices: ' + strcompress(strjoin(string(miss_los)))
+            warn, 'Missed chan_ids: ' + $
+                  strcompress(strjoin(string(chords.chan_id[miss_los],f='(i2)')))
         endif
         weight=weight[*,*,*,los]
         err=0
     endelse
 
-    fida={nchan:n_elements(los),xlens:xlens[los],ylens:ylens[los],zlens:zlens[los],sigma_pi_ratio:chords.sigma_pi_ratio[los],$
+    fida={nchan:n_elements(los),xlens:xlens[los],ylens:ylens[los],zlens:zlens[los],$
           xlos:xlos[los],ylos:ylos[los],zlos:zlos[los],rlos:rlos[los],chan_id:chords.chan_id[los],$
-          ra:chords.ra[los],rd:chords.rd[los],h:chords.h[los],los:los,weight:weight,err:err}
+          ra:chords.ra[los],rd:chords.rd[los],h:chords.h[los],$
+          sigma_pi_ratio:chords.sigma_pi_ratio[los],los:los,weight:weight,err:err}
 END
 
 PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
@@ -726,7 +747,8 @@ PRO write_namelist,inputs
     printf,55,f='("calc_birth = ",i2 , "    !! Calculate Birth Profile")',inputs.calc_birth
     printf,55,f='("calc_fida_wght = ",i2 , "    !! Calculate FIDA weights")',inputs.calc_fida_wght
     printf,55,f='("calc_npa_wght = ",i2 , "    !! Calculate NPA weights")',inputs.calc_npa_wght
-    printf,55,f='("calc_brems = ",i2,"    !! Calculate Bremsstrahlung else load from inputs")',inputs.calc_brems
+    printf,55,f='("calc_brems = ",i2,"    !! Calculate Bremsstrahlung else load from inputs")',$
+              inputs.calc_brems
     printf,55,f='("load_neutrals = ",i2,"    !! Load Neutrals")',inputs.load_neutrals
     printf,55,f='("load_fbm = ",i2,"    !! Load FBM")',inputs.load_fbm
     printf,55,f='("interactive = ",i2,"    !! Show Progress")',inputs.interactive
@@ -747,9 +769,12 @@ PRO write_namelist,inputs
     printf,55,f='("nphi_wght = ",i9,"    !! Number of Gyro-angles")',inputs.nphi_wght
     printf,55,f='("ichan_wght = ",i3,"    !! Channel for weight function")',inputs.ichan_wght
     printf,55,f='("emax_wght = ",1f12.2,"    !! Maximum Energy for Weights")',inputs.emax_wght
-    printf,55,f='("dwav_wght = ",1f12.5,"    !! Wavelength Seperation for Weights ")',inputs.dwav_wght
-    printf,55,f='("wavel_start_wght = ",1f12.5,"    !! Wavelength Start for Weights ")',inputs.wavel_start_wght
-    printf,55,f='("wavel_end_wght = ",1f12.5,"    !! Wavelength End for Weights ")',inputs.wavel_end_wght
+    printf,55,f='("dwav_wght = ",1f12.5,"    !! Wavelength Seperation for Weights ")',$
+              inputs.dwav_wght
+    printf,55,f='("wavel_start_wght = ",1f12.5,"    !! Wavelength Start for Weights ")',$
+              inputs.wavel_start_wght
+    printf,55,f='("wavel_end_wght = ",1f12.5,"    !! Wavelength End for Weights ")',$
+              inputs.wavel_end_wght
     printf,55,''
     printf,55,'/'
     printf,55,''
@@ -895,9 +920,11 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
         err=0
     endelse
 
-    ;;CALL DEVICE ROUTINES THAT GET BEAM GEOMETRY, FIDA DIAGNOSTIC INFO, PROFILES, and the grid in flux coord.
+    ;;CALL DEVICE ROUTINES THAT GET BEAM GEO., FIDA DIAG. INFO, PROFILES, and EQUIL.
     info,'Calling device routines...'
-    CALL_PROCEDURE, strlowcase(inputs.device)+'_routines',inputs,grid, nbi, chords, profiles, equil,err
+    CALL_PROCEDURE, strlowcase(inputs.device)+'_routines',$
+                    inputs, grid, nbi, chords, profiles, equil, err
+
     if err eq 1 then begin
         error,'Device routines failed. Exiting...'
         goto,GET_OUT
@@ -918,7 +945,8 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     endelse
 
     ;;FIDA PRE PROCESSING
-    if inputs.calc_spec or inputs.calc_npa or inputs.calc_fida_wght or inputs.calc_npa_wght then begin
+    if inputs.calc_spec or inputs.calc_npa or $
+       inputs.calc_fida_wght or inputs.calc_npa_wght then begin
         info,'Pre-processing chords...'
         prepare_chords,inputs,grid,chords,fida
         if fida.err eq 1 then begin
@@ -951,10 +979,12 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
         success,'Bremsstrahlung calculation completed'
     endif
 
-    plot_file=inputs.install_dir+strupcase(inputs.device)+'/'+strlowcase(inputs.device)+'_plots.pro'
+    plot_file=inputs.install_dir+strupcase(inputs.device)+'/'+ $
+              strlowcase(inputs.device)+'_plots.pro'
     ;; Plot grid, beam, sightlines, and equilibrium
     if keyword_set(plot) and FILE_TEST(plot_file) then begin
-        CALL_PROCEDURE, strlowcase(inputs.device)+'_plots',inputs,grid,nbi,chords,fida,equil,nbgeom,plasma
+        CALL_PROCEDURE, strlowcase(inputs.device)+'_plots',$
+                        inputs,grid,nbi,chords,fida,equil,nbgeom,plasma
     endif
 
     ;;SAVE STRUCTURES
@@ -997,7 +1027,6 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ;;DEFINE DIMENSIONS
     ncdf_control,ncid
     one_id = ncdf_dimdef(ncid,'dim001',1)
-    three_id = ncdf_dimdef(ncid,'dim003',3)
 
     ndiag_id=ncdf_dimdef(ncid,'ndiag',n_elements(inputs.diag))
     strmax_id=ncdf_dimdef(ncid,'maxstr',max(strlen(inputs.diag)))
@@ -1016,14 +1045,14 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     wid = ncdf_dimdef(ncid,'w',inputs.nw)
     rhoid = ncdf_dimdef(ncid,'rho',plasma.nrho)
 
-    if inputs.calc_spec or inputs.calc_npa or inputs.calc_fida_wght or inputs.calc_npa_wght then begin
+    if inputs.calc_spec or inputs.calc_npa or $
+       inputs.calc_fida_wght or inputs.calc_npa_wght then begin
         chan_id=ncdf_dimdef(ncid,'chan',n_elements(fida.los))
         xyz_dim=[three_id,chan_id]
     endif
 
     griddim=[xid,yid,zid]
     twodim = [rid,wid]
-    dim3d=[three_id,three_id]
     diagstr_dim=[strmax_id,ndiag_id]
 
     ;;DEFINE VARIABLES
@@ -1045,8 +1074,10 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
         pdim_varid=ncdf_vardef(ncid,'fbm_npitch',one_id,/long)
     endif
 
-    if inputs.calc_spec or inputs.calc_npa or inputs.calc_fida_wght or inputs.calc_npa_wght then $
+    if inputs.calc_spec or inputs.calc_npa or $
+       inputs.calc_fida_wght or inputs.calc_npa_wght then begin
         nchan_varid=ncdf_vardef(ncid,'nchan',one_id,/long)
+    endif
 
     ;;DEFINE BEAM GRID VARIABLES
     ugrid_varid=ncdf_vardef(ncid,'u_grid',griddim,/double)
@@ -1060,9 +1091,9 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     alpha_varid=ncdf_vardef(ncid,'alpha',one_id,/double)
     beta_varid=ncdf_vardef(ncid,'beta',one_id,/double)
     origin_varid=ncdf_vardef(ncid,'origin',three_id,/double)
-    xx_varid=ncdf_vardef(ncid,'xx',xid,/double)
-    yy_varid=ncdf_vardef(ncid,'yy',yid,/double)
-    zz_varid=ncdf_vardef(ncid,'zz',zid,/double)
+    xc_varid=ncdf_vardef(ncid,'xc',xid,/double)
+    yc_varid=ncdf_vardef(ncid,'yc',yid,/double)
+    zc_varid=ncdf_vardef(ncid,'zc',zid,/double)
 
     ;;DEFINE INTERPOLATING GRID VARIABLES
     r2d_varid=ncdf_vardef(ncid,'r2d',twodim,/double)
@@ -1082,9 +1113,6 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     sm_varid=ncdf_vardef(ncid,'species_mix',three_id,/double)
     xyzsrc_varid=ncdf_vardef(ncid,'xyz_src',three_id,/double)
     xyzpos_varid=ncdf_vardef(ncid,'xyz_pos',three_id,/double)
-    arot_varid=ncdf_vardef(ncid,'Arot',dim3d,/double)
-    brot_varid=ncdf_vardef(ncid,'Brot',dim3d,/double)
-    crot_varid=ncdf_vardef(ncid,'Crot',dim3d,/double)
 
     ;;DEFINE FBM VARIABLES
     if inputs.load_fbm then begin
@@ -1126,7 +1154,8 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     brems_varid=ncdf_vardef(ncid,'brems',chan_id,/double)
 
     ;;LOS VARIABLE DEFINITION
-    if inputs.calc_spec or inputs.calc_npa or inputs.calc_fida_wght or inputs.calc_npa_wght then begin
+    if inputs.calc_spec or inputs.calc_npa or $
+       inputs.calc_fida_wght or inputs.calc_npa_wght then begin
         xlens_varid=ncdf_vardef(ncid,'xlens',chan_id,/double)
         ylens_varid=ncdf_vardef(ncid,'ylens',chan_id,/double)
         zlens_varid=ncdf_vardef(ncid,'zlens',chan_id,/double)
@@ -1161,7 +1190,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
         ncdf_varput,ncid,nchan_varid,long(n_elements(fida.los))
     end
 
-    ;;WRITE GRID VARIABLES
+    ;;WRITE BEAM GRID VARIABLES
     ncdf_varput,ncid,ugrid_varid,double(grid.u_grid)
     ncdf_varput,ncid,vgrid_varid,double(grid.v_grid)
     ncdf_varput,ncid,wgrid_varid,double(grid.w_grid)
@@ -1173,9 +1202,9 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ncdf_varput,ncid,alpha_varid,double(inputs.alpha)
     ncdf_varput,ncid,beta_varid,double(inputs.beta)
     ncdf_varput,ncid,origin_varid,double(inputs.origin)
-    ncdf_varput,ncid,xx_varid,double(grid.xx)
-    ncdf_varput,ncid,yy_varid,double(grid.yy)
-    ncdf_varput,ncid,zz_varid,double(grid.zz)
+    ncdf_varput,ncid,xc_varid,double(grid.xc)
+    ncdf_varput,ncid,yc_varid,double(grid.yc)
+    ncdf_varput,ncid,zc_varid,double(grid.zc)
 
     ;;WRITE BEAM VARIABLES
     ncdf_varput,ncid,bn_varid,long(inputs.isource[0])
@@ -1191,9 +1220,6 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ncdf_varput,ncid,sm_varid,double([nbi.full,nbi.half,nbi.third])
     ncdf_varput,ncid,xyzsrc_varid,double(nbgeom.xyz_src)
     ncdf_varput,ncid,xyzpos_varid,double(nbgeom.xyz_pos)
-    ncdf_varput,ncid,arot_varid,double(nbgeom.Arot)
-    ncdf_varput,ncid,brot_varid,double(nbgeom.Brot)
-    ncdf_varput,ncid,crot_varid,double(nbgeom.Crot)
 
     ;;WRITE FBM VARIABLES
     if inputs.load_fbm then begin
@@ -1238,7 +1264,8 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     if n_elements(brems) ne 0 then ncdf_varput,ncid,brems_varid,double(brems)
 
     ;;WRITE LINE OF SIGHT (LOS)
-    if inputs.calc_spec or inputs.calc_npa or inputs.calc_fida_wght or inputs.calc_npa_wght then begin
+    if inputs.calc_spec or inputs.calc_npa or $
+       inputs.calc_fida_wght or inputs.calc_npa_wght then begin
         los=fida.los
         ncdf_varput,ncid,xlens_varid,double(fida.xlens)
         ncdf_varput,ncid,ylens_varid,double(fida.ylens)
