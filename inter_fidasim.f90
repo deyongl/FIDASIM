@@ -59,6 +59,10 @@ module application
   !! it should not affect the calculation
   integer :: nbi_outside=0 !! counter for NBI markers that do not
   !! enter the simulation grid
+  !! save velocity vectors of individual species
+  integer,parameter :: nvelocities=100 !! n velocity vectors
+  integer, dimension(nvelocities/2) :: every_second_index
+  integer, dimension(nvelocities/2) :: first_half_indices 
  type prof_type
      !! kinetic profiles
      integer::nrho
@@ -201,6 +205,9 @@ module application
      real(double),dimension(:,:,:,:,:),allocatable:: neut_dens! Density 
      real(double),dimension(:,:,:,:)    ,allocatable:: spectra
      real(double),dimension(:,:,:,:,:),allocatable:: birth_dens!Deposition prof
+     real(double), dimension(:,:,:,:,:,:), allocatable :: velocity_vectors
+     integer,     dimension(:,:,:,:)     , allocatable :: velocity_counter!!
+     integer,     dimension(:,:,:,:)     , allocatable :: vel_vec_red_lev!!
   end type result_type
 
   type inputs_type
@@ -291,6 +298,7 @@ contains
     open(66,file=filename)
     read(66,*) !# FIDASIM input file created...
     read(66,"(A100)") root_dir
+    read(66,*) !
     read(66,*) inputs%shot_number
     read(66,*) inputs%time
     read(66,*) inputs%runid
@@ -437,6 +445,16 @@ contains
     print*, 'NBI #',nbi%isource+1
     print*,'NBI power   :', real(nbi%pinj,float)
     print*,'NBI voltage :', real(nbi%einj,float)
+
+!!$    print*,nbi%dv,nbi%dw
+!!$    print*,nbi%divay,nbi%divaz
+!!$    print*,nbi%focy,nbi%focz
+!!$    print*,nbi%einj,nbi%pinj
+!!$    print*,nbi%species_mix
+!!$    print*, nbi%Crot(:,:)
+!!$    print*, nbi%Brot(:,:)
+!!$    print*, nbi%Arot(:,:)
+!!$    print*, nbi%vinj
   end subroutine read_nbi
 
   subroutine read_beam
@@ -480,6 +498,9 @@ contains
     call check( nf90_get_var(ncid, arot_varid, nbi%Arot(:,:)) )
     call check( nf90_get_var(ncid, brot_varid, nbi%Brot(:,:)) )
     call check( nf90_get_var(ncid, crot_varid, nbi%Crot(:,:)) )
+
+
+    
     !!CLOSE netCDF FILE
     call check( nf90_close(ncid) )
     nbi%vinj=sqrt(2.d0*nbi%einj*1.d3 &
@@ -510,10 +531,13 @@ contains
     read(66) diag%xyzlos(:,:)
     read(66) diag%headsize(:)
     read(66) diag%opening_angle(:)
+    print*,'test2'
     read(66) diag%sigma_pi(:)
     read(66) diag%instfu(:)
     read(66) diag%los_name(:)
-    read(66)diag%los_wght(:,:,:,:)
+    print*,'test3'
+    read(66) diag%los_wght(:,:,:,:)
+    print*,'test4'
     close(66)
     if (inputs%npa.eq.0) then 
        npa%npa_loop=1.
@@ -568,7 +592,6 @@ contains
     integer         :: n,m !! initial/final state
     integer         :: ie,iti !! energy/ti index
     integer(long)   :: nlev
-
    !-------------------ELECTRON EXCITATION/IONIZATION TABLE--------
     filename=trim(adjustl(root_dir))//"TABLES/qetable.bin"
     open(66,file=filename,access='stream')
@@ -2467,6 +2490,9 @@ contains
     integer                                 :: ipitch !! index of pitch
     real(double)                            :: dray !! (for NPA)
     real(double), dimension(3)              :: ray     !! ray towards NPA
+    integer                                 :: counter !!of velocity vectors
+    integer                                 :: vel_vec_red_lev !! reduction level
+    real(double), dimension(nvelocities/2)  :: velocity_dummy
     photons=0.d0
     iflux=sum(states)
     !! --------------- Check if inputs are valid for colrad -------------- !!
@@ -2564,6 +2590,27 @@ contains
     !$OMP CRITICAL(col_rad)
     result%neut_dens(ac(1),ac(2),ac(3),:,neut_type)= & 
          result%neut_dens(ac(1),ac(2),ac(3),:,neut_type)+dens(:)![neutrals/cm^3]
+    result%velocity_counter(ac(1),ac(2),ac(3),neut_type)= & !!increase counter
+         result%velocity_counter(ac(1),ac(2),ac(3),neut_type)+1
+    counter=result%velocity_counter(ac(1),ac(2),ac(3),neut_type)
+    vel_vec_red_lev=result%vel_vec_red_lev(ac(1),ac(2),ac(3),neut_type)
+    if(mod(counter,vel_vec_red_lev).eq.0)then 
+       counter=counter/vel_vec_red_lev
+       if(counter.gt.nvelocities)then
+          !! increase reduction level in storing velocity vectors
+          result%vel_vec_red_lev(ac(1),ac(2),ac(3),neut_type)=vel_vec_red_lev*2
+          !! move every second index to the first half of the array!
+          do n=1,3
+             velocity_dummy= &
+                  result%velocity_vectors(ac(1),ac(2),ac(3),neut_type,every_second_index,n)
+             result%velocity_vectors(ac(1),ac(2),ac(3),neut_type,first_half_indices,n)= &
+                  velocity_dummy
+          enddo
+          !! don't save this one
+       else 
+          result%velocity_vectors(ac(1),ac(2),ac(3),neut_type,counter,:)=vn
+       endif
+    endif
     !$OMP END CRITICAL(col_rad)
     if(inputs%calc_birth.eq.1)then
        if(neut_type.le.3)then
@@ -2957,7 +3004,6 @@ contains
   !*****************************************************************************
   subroutine dcx
     integer                                :: i,j,k   !! indices of cells
-    integer                                :: irho,ir,iz 
     real(double), dimension(3)             :: randomu   
     integer                                :: idcx    !! counter
     real(double), dimension(3)             :: ipos      !! start position
@@ -2967,7 +3013,10 @@ contains
     real(double), dimension(nlevs)         :: denn    !!  neutral dens (n=1-4)
     real(double) :: denf,denp
     real(double), dimension(nlevs)         :: prob    !!  Prob. for CX 
-    real(double), dimension(3)             :: vnbi_f,vnbi_h,vnbi_t    !! Velocity of NBIneutrals
+    integer                                :: counter !!of velocity vectors
+    integer                                :: vel_vec_red_lev !! reduction level
+    integer                                :: type    !! type of NBI neutral
+    real(double), dimension(3)             :: vnbi    !! Velocity of NBIneutrals
     integer                                :: in      !! index neut rates
     real(double), dimension(nlevs)         :: rates   !! Rate coefficiants forCX
     !! Collisiional radiative model along track
@@ -2980,6 +3029,7 @@ contains
     real(double), dimension(grid%nx,grid%ny,grid%nz)::papprox !!approx.density
     real(double)                           :: papprox_tot
     real(double), dimension(grid%nx,grid%ny,grid%nz)::nlaunch
+   
     papprox=0.d0
     papprox_tot=0.d0
     !! ------------- calculate papprox needed for guess of nlaunch --------!!
@@ -3004,7 +3054,8 @@ contains
     ! Loop through all of the cells
     print*,'    # of markers: ',int(sum(nlaunch))
     !$OMP PARALLEL DO private(i,j,k,idcx,randomu,ipos,vhalo,pos_arr,dt_arr, &
-    !$OMP& ntrack,prob,vnbi_f,vnbi_h,vnbi_t,denn,rates,denp,denf,states,jj,photons)
+    !$OMP& ntrack,prob,type,counter,vel_vec_red_lev,vnbi, &
+    !$OMP& denn,rates,denp,denf,states,jj,photons)
     loop_along_z: do k = 1, grid%Nz
        loop_along_y: do j = 1, grid%Ny
           loop_along_x: do i = 1, grid%Nx
@@ -3020,22 +3071,22 @@ contains
                 call track2(vhalo,ipos, pos_arr, dt_arr, ntrack)
                 !! ---------------- calculate CX probability ------------- !!
                 prob=0.d0
-                vnbi_f=ipos(:)-nbi%xyz_pos(:)
-                vnbi_f=vnbi_f/sqrt(dot_product(vnbi_f,vnbi_f))*nbi%vinj
-                vnbi_h=vnbi_f/sqrt(2.d0)
-                vnbi_t=vnbi_f/sqrt(3.d0)
-                ! CX with full energetic NBI neutrals ------ !!
-                denn(:)=result%neut_dens(i,j,k,:,nbif_type)
-                call neut_rate(denn,vhalo,vnbi_f,rates)
-                prob=prob + rates
-                ! CX with half energetic NBI neutrals ------ !!
-                denn(:)=result%neut_dens(i,j,k,:,nbih_type)
-                call neut_rate(denn,vhalo,vnbi_h,rates)
-                prob=prob + rates
-                ! CX with third energetic NBI neutrals ------ !!
-                denn(:)=result%neut_dens(i,j,k,:,nbit_type)
-                call neut_rate(denn,vhalo,vnbi_t,rates)
-                prob=prob + rates
+                energy_fractions: do type=1,3
+                   call randu(randomu)  
+                   !! (type = 1: full energy, =2: half energy, =3: third energy
+                   !! get velocity vector of NBI neutrals ------ !!
+                   counter=result%velocity_counter(i,j,k,type)
+                   vel_vec_red_lev=result%vel_vec_red_lev(i,j,k,type)
+                   counter=int(counter/vel_vec_red_lev)-1
+                   jj=int(counter*randomu(1)+0.5)+1
+                   vnbi=result%velocity_vectors(i,j,k,type,jj,:)
+                   !! get density of NBI neutrals ------ !!
+                   denn(:)=result%neut_dens(i,j,k,:,type)
+                   !! calculate neutralization probability ------ !!
+                   call neut_rate(denn,vhalo,vnbi,rates)
+                   prob=prob + rates
+                enddo energy_fractions
+ 
                 if(sum(prob).le.0.)cycle loop_over_dcx
                 !! --------- solve collisional radiative model along track-!!
                 call prof_interp(ipos,denp)
@@ -3059,8 +3110,7 @@ contains
   !-------------------------- halo -------------------------------------------
   !*****************************************************************************
   subroutine halo
-    integer                                :: i,j,k !indices of cells  
-    integer                                :: irho,ir,iz  
+    integer                                :: i,j,k !indices of cells 
     integer                                :: ihalo !! counter
     real(double), dimension(3)             :: randomu   
     real(double), dimension(3)             :: ipos    !! start position
@@ -3071,7 +3121,8 @@ contains
     real(double)                           :: denf    !! fast-ion density
     real(double)                           :: denp    !! Proton density
     real(double), dimension(nlevs)         :: prob    !! Prob. for CX 
-    real(double), dimension(nlevs)         :: rates   !! Rate coefficiants forC
+    integer                                :: counter !!of velocity vectors
+    integer                                :: vel_vec_red_lev !! reduction level
     real(double), dimension(3)             :: vnhalo  !! v of halo neutral
     integer                                :: in      !! index over halo neutral
     !! Collisiional radiative model along track
@@ -3088,14 +3139,18 @@ contains
     real(double)                           :: dcx_dens, halo_iteration_dens
     integer  :: s1type  ! halo iteration
     integer  :: s2type  ! halo iteration
-
+    real(double), dimension(nvelocities/2)  :: velocity_dummy
+    integer                                 :: ncounters_s2,nn !! save velocoity vectors
 
     s1type=afida_type
     s2type=pfida_type
     dcx_dens=sum(result%neut_dens(:,:,:,:,halo_type))
     if(dcx_dens.eq.0)stop 'the denisty of DCX-neutrals is too small!'
 
-    result%neut_dens(:,:,:,:,s1type) = result%neut_dens(:,:,:,:,halo_type)
+    result%neut_dens(:,:,:,:,s1type)          = result%neut_dens(:,:,:,:,halo_type)
+    result%velocity_vectors(:,:,:,s1type,:,:) = result%velocity_vectors(:,:,:,halo_type,:,:)
+    result%velocity_counter(:,:,:,s1type)     = result%velocity_counter(:,:,:,halo_type)
+    result%vel_vec_red_lev(:,:,:,s1type)      = result%vel_vec_red_lev(:,:,:,halo_type)
     iterations: do hh=1,20
        !! ------------- calculate papprox needed for guess of nlaunch --------!!
        papprox=0.d0
@@ -3115,8 +3170,8 @@ contains
        print*, '    # of markers: ' ,int(sum(nlaunch))
        
        !$OMP PARALLEL DO private(i,j,k,ihalo,randomu,ipos,denp,denf, &
-       !$OMP& vihalo,pos_arr,dt_arr,ntrack,prob,denn,in,vnhalo,rates,states, &
-       !$OMP& jj,photons)
+       !$OMP& vihalo,pos_arr,dt_arr,ntrack,prob,counter,vel_vec_red_lev, &
+       !$OMP& denn,vnhalo,states,jj,photons)
        loop_along_z: do k = 1, grid%Nz
           loop_along_y: do j = 1, grid%Ny
              loop_along_x: do i = 1, grid%Nx
@@ -3135,7 +3190,7 @@ contains
                    call track2(vihalo,ipos, pos_arr, dt_arr, ntrack)
                    !! ---------------- calculate CX probability --------------!!
                    prob=0.d0
-                   !CX with HALO neutrals
+                   !! get density of Halo neutrals of previous generation ------ !!
                    denn(:)=result%neut_dens(i,j,k,:,s1type)
                    !! there is no second iteration in the fast-ion simulation. 
                    !! So add something like the fi-contribution to denn
@@ -3145,9 +3200,15 @@ contains
                    else
                       print*,'denf and denp almost the same (in halo routine)'
                    endif
-                   call neut_rate_beam_therm(denn,vihalo,ipos,prob)
-                   
-                  ! print*, 100.*(prob(1)-states(1))/prob(1)
+                   !! get velocity vector of Halo neutrals of previous generation
+                   counter=result%velocity_counter(i,j,k,s1type)
+                   vel_vec_red_lev=result%vel_vec_red_lev(i,j,k,s1type)
+                   counter=int(counter/vel_vec_red_lev)-1
+                   jj=int(counter*randomu(1)+0.5)+1
+                   vnhalo=result%velocity_vectors(i,j,k,s1type,jj,:)
+                   !! calculate neutralization probability ------ !!
+                   call neut_rate(denn,vihalo,vnhalo,prob)
+
                    if(sum(prob).le.0.) cycle loop_over_halos
                    !! --------- solve collisional radiative model along track-!!
                    states=prob*(denp-denf)
@@ -3163,11 +3224,52 @@ contains
           enddo loop_along_y
        enddo loop_along_z
        !$OMP END PARALLEL DO
+       !! ADD this generations density to the total halo density
        halo_iteration_dens=sum(result%neut_dens(:,:,:,:,s2type))
        result%neut_dens(:,:,:,:,halo_type)=result%neut_dens(:,:,:,:,halo_type) &
             + result%neut_dens(:,:,:,:,s2type)
+       !! add this generations velocity vectors in halo_type 
+       !! this is a bit more difficult as the vel_vec_red_level has to be taken into account
+       do k = 1, grid%Nz
+          do j = 1, grid%Ny
+             do i = 1, grid%Nx
+                vel_vec_red_lev=result%vel_vec_red_lev(i,j,k,halo_type)
+                ncounters_s2=int(result%velocity_counter(i,j,k,s2type)/vel_vec_red_lev)
+                do jj=1,ncounters_s2 !! add counter_s2 velocity vectors
+                   result%velocity_counter(i,j,k,halo_type)= & !! increase halo_counter
+                        result%velocity_counter(i,j,k,halo_type)+1
+                   counter=result%velocity_counter(i,j,k,halo_type)
+                   if(mod(counter,vel_vec_red_lev).eq.0)then 
+                      if(counter.gt.nvelocities)then
+                         !! increase reduction-level in storing velocity vectors
+                         vel_vec_red_lev = vel_vec_red_lev*2
+                         result%vel_vec_red_lev(i,j,k,halo_type)=vel_vec_red_lev
+                         !! move every second index to the first half of the array!
+                         do nn=1,3
+                            velocity_dummy= &
+                                 result%velocity_vectors(i,j,k,halo_type,every_second_index,nn)
+                            result%velocity_vectors(i,j,k,halo_type,first_half_indices,nn)= &
+                                 velocity_dummy
+                         enddo
+                         !! don't save this one
+                      else 
+                         result%velocity_vectors(i,j,k,halo_type,counter,:)= &
+                              result%velocity_vectors(i,j,k,s2type,jj,:)
+                      endif
+                   endif
+                enddo
+             enddo
+          enddo
+       enddo
+       !! reset storage arrays
        result%neut_dens(:,:,:,:,s1type)= result%neut_dens(:,:,:,:,s2type)
        result%neut_dens(:,:,:,:,s2type)= 0.
+       result%velocity_vectors(:,:,:,s1type,:,:) = result%velocity_vectors(:,:,:,s2type,:,:)
+       result%velocity_counter(:,:,:,s1type)     = result%velocity_counter(:,:,:,s2type)
+       result%velocity_counter(:,:,:,s2type)     = 0
+       result%vel_vec_red_lev(:,:,:,s1type)      = result%vel_vec_red_lev(:,:,:,s2type)
+       result%vel_vec_red_lev(:,:,:,s2type)      = 1
+       !! check if to exit the iteration 
        if(halo_iteration_dens/dcx_dens.gt.1)exit iterations
        inputs%nr_halo=inputs%nr_dcx*halo_iteration_dens/dcx_dens
        if(inputs%nr_halo.lt.inputs%nr_dcx*0.01)exit iterations
@@ -3175,13 +3277,16 @@ contains
     !! set the neutral density in s1type(fida_type) and s2type (dummy) to 0!
     result%neut_dens(:,:,:,:,s1type) = 0.d0
     result%neut_dens(:,:,:,:,s2type) = 0.d0
+    result%velocity_counter(:,:,:,s1type)     = 0
+    result%velocity_counter(:,:,:,s2type)     = 0
+    result%vel_vec_red_lev(:,:,:,s1type)      = 1
+    result%vel_vec_red_lev(:,:,:,s2type)      = 1
   end subroutine halo
   !*****************************************************************************
   !-----------FIDA simulation---------------------------------------------------
   !*****************************************************************************
   subroutine fida      
     integer                               :: i,j,k   !! indices  x,y,z  of cells
-    integer                               :: ir,iz
     integer                               :: iion
     real(double), dimension(3)            :: ipos    !! start position and index
     integer,      dimension(3)            :: iind    !! index of start cell
@@ -3190,22 +3295,25 @@ contains
     integer,dimension(3)                  :: ac      !! new actual cell
     real(double)                          :: rho
     !! Determination of the CX probability
-    real(double), dimension(nlevs)        :: denn    !!  neutral dens (n=1-4)
-    real(double)                :: vtor           !! toroidal rotation
-    real(double)                :: ti,te          !! Ion/electron temperature
-    real(double)                :: denp,dene,deni !! P/impurity/electron densit
+    real(double), dimension(nlevs)        :: denn           !!  neutral dens (n=1-4)
+    real(double)                          :: vtor           !! toroidal rotation
+    real(double)                          :: ti,te          !! Ion/electron temperature
+    real(double)                          :: denp,dene,deni !! P/impurity/electron densit
     real(double)                          :: denf    !! fast-ion density
     real(double), dimension(nlevs)        :: prob    !! Prob. for CX 
-    real(double), dimension(3)            :: vnbi_f,vnbi_h,vnbi_t    !! Velocity of NBIneutrals
-    real(double), dimension(3)            :: vnhalo  !! v of halo neutral
-    integer                               :: in      !! index of neut rates
+    !! Determine velocity vectors of neutrals
+    integer                               :: counter !!of velocity vectors
+    integer                               :: vel_vec_red_lev !! reduction level
+    integer                               :: type    !! type of NBI neutral 
+    real(double), dimension(3)            :: randomu   
+    real(double), dimension(3)            :: vn      !!  velocity vector of neutrals  
     real(double), dimension(nlevs)        :: rates   !! Rate coefficiants for CX
     !! Collisiional radiative model along track
     real(double), dimension(nlevs)        :: states  ! Density of n-states
     integer                               :: ntrack
     real(double), dimension(grid%ntrack)  :: dt_arr  !! time per track step
     real(double), dimension(3,grid%ntrack):: pos_arr !! positions along track
-    integer                               :: jj,kk      !! counter along track
+    integer                               :: jj      !! counter along track
     real(double)                          :: photons !! photon flux 
     real(double), dimension(grid%nx,grid%ny,grid%nz)::papprox,nlaunch !! approx. density
     real(double)                          :: nlaunch2   
@@ -3214,7 +3322,7 @@ contains
     real(double)                          :: papprox_tot 
     integer                               :: inpa    
     real(double)                          :: alpha !! angle relative to detector LOS
-
+    integer                               :: cnt,maxcnt !! counters to show progress of simualtion
     !! ------------- calculate papprox needed for guess of nlaunch --------!!
     papprox=0.d0
     papprox_tot=0.d0
@@ -3242,11 +3350,13 @@ contains
     call get_nlaunch(inputs%nr_fida,papprox,papprox_tot,nlaunch)
     print*,'    # of markers: ',int(sum(nlaunch))
     if(inputs%npa.eq.1)print*,'    # npa_loop:   ',int(npa%npa_loop)
+    maxcnt=grid%Nz*grid%Ny*grid%Nz
+    cnt=0
     !$OMP PARALLEL DO private(i,j,k,inpa,vi_arr,nlaunch2,iion,ac,ipos,vi, &
     !$OMP& vi_abs,alpha,iind,ray,hit_pos,ddet, &
     !$OMP& denp,ti,vtor,te,dene,deni, &
-    !$OMP& pos_arr,dt_arr,ntrack,prob,vnbi_f,vnbi_h,vnbi_t,denn,rates,denf,in,vnhalo, &
-    !$OMP& states,jj,photons)
+    !$OMP& pos_arr,dt_arr,ntrack,prob,type,counter,vel_vec_rel_lev,randomu,vn, &
+    !$OMP& denn,rates,denf,states,jj,photons,cnt)
     loop_along_z: do k = 1, grid%Nz
        loop_along_y: do j = 1, grid%Ny
           loop_along_x: do i = 1, grid%Nx
@@ -3284,34 +3394,26 @@ contains
                    !! ---------------- calculate CX probability --------------!!
                    call get_ac(ipos,ac) !! new cell maybe due to gyro orbit!
                    prob=0.d0
-                   vnbi_f=ipos(:)-nbi%xyz_pos(:)
-                   vnbi_f=vnbi_f/sqrt(dot_product(vnbi_f,vnbi_f))*nbi%vinj
-                   vnbi_h=vnbi_f/sqrt(2.d0)
-                   vnbi_t=vnbi_f/sqrt(3.d0)
-                   ! CX with full energetic NBI neutrals
-                   denn(:)=result%neut_dens(ac(1),ac(2),ac(3),:,nbif_type)
-                   call neut_rate(denn,vi,vnbi_f,rates)
-                   prob=prob + rates
-                   ! CX with half energetic NBI neutrals
-                   denn(:)=result%neut_dens(ac(1),ac(2),ac(3),:,nbih_type)
-                   call neut_rate(denn,vi,vnbi_h,rates)
-                   prob=prob + rates
-                   ! CX with third energetic NBI neutrals
-                   denn(:)=result%neut_dens(ac(1),ac(2),ac(3),:,nbit_type)
-                   call neut_rate(denn,vi,vnbi_t,rates)
-                   prob=prob + rates
-                   ! CX with HALO neutrals
-                   denn(:)=result%neut_dens(ac(1),ac(2),ac(3),:,halo_type)
-                   !! there is no Impurity ion halo calculation. Therefore,  
-                   !! assume that there were no impurities
-                   if(denp.gt.0)denn(:)=denn(:)*dene/denp
-                   call neut_rate_beam_therm(denn,vi,ipos,rates)
-                   prob=prob + rates
-                   !do in=1,int(nr_halo_neutrate)
-                   !   call mc_halo(ipos, vnhalo(:))
-                   !   call neut_rate(denn,vi,vnhalo,rates)
-                   !   prob=prob + rates/nr_halo_neutrate
-                   !enddo
+                   neutral_types: do type=1,4
+                      !! = 1: full, =2: half, =3: one third, =4: halo
+                      !! get velocity vectors of those neutrals ------ !!
+                      call randu(randomu)  
+                      counter=result%velocity_counter(ac(1),ac(2),ac(3),type)
+                      vel_vec_red_lev=result%vel_vec_red_lev(ac(1),ac(2),ac(3),type)
+                      counter=int(counter/vel_vec_red_lev)-1
+                      jj=int(counter*randomu(1)+0.5)+1
+                      vn=result%velocity_vectors(ac(1),ac(2),ac(3),type,jj,:)
+                      !! get density of those neutrals ------ !!
+                      denn(:)=result%neut_dens(ac(1),ac(2),ac(3),:,type)
+                      if(type.eq.halo_type)then
+                         !! there is no Impurity ion halo calculation. Therefore,  
+                         !! assume that there were no impurities
+                         if(denp.gt.0)denn(:)=denn(:)*dene/denp
+                      endif
+                      !! calculate neutralization probability ------ !!
+                      call neut_rate(denn,vi,vn,rates)
+                      prob=prob + rates
+                   enddo neutral_types
                    if(sum(prob).le.0.)cycle loop_over_fast_ions
                    !! --------- solve collisional radiative model along track-!!
                    states=prob*denf
@@ -3324,6 +3426,13 @@ contains
                    enddo loop_along_track
                 enddo loop_over_fast_ions
              enddo npa_loop
+
+             !$OMP CRITICAL
+             cnt=cnt+1
+             if(mod(cnt,100).eq.0)then
+                WRITE(*,'(f7.2,"%",a,$)') cnt/maxcnt*100,char(13)
+             endif
+             !$OMP END CRITICAL
           enddo loop_along_x
        enddo loop_along_y
     enddo loop_along_z
@@ -3333,7 +3442,6 @@ contains
 
   subroutine passive_fida      
     integer                               :: i,j,k   !! indices  x,y,z  of cells
-    integer                               :: ir,iz
     integer                               :: iion
     real(double), dimension(3)            :: ipos    !! start position
     integer,      dimension(3)            :: iind    !! index of start cell
@@ -3353,7 +3461,7 @@ contains
     integer                               :: ntrack
     real(double), dimension(grid%ntrack)  :: dt_arr  !! time per track step
     real(double), dimension(3,grid%ntrack):: pos_arr !! positions along track
-    integer                               :: jj,kk      !! counter along track
+    integer                               :: jj      !! counter along track
     real(double)                          :: photons !! photon flux 
     real(double), dimension(grid%nx,grid%ny,grid%nz)::papprox,nlaunch !! approx. density
     real(double)                          :: nlaunch2   
@@ -3954,6 +4062,20 @@ program fidasim
   !! neutral density array!
   allocate(result%neut_dens(grid%Nx,grid%Ny,grid%Nz,nlevs,ntypes))
   result%neut_dens(:,:,:,:,:)=0.d0
+  !! velocity vectors!
+  !! nx,ny,nz,ntypes,ncounters,3 velocity dimensions
+  allocate(result%velocity_vectors(grid%Nx,grid%Ny,grid%Nz,ntypes,nvelocities,3))
+  result%velocity_vectors=0.d0
+  allocate(result%velocity_counter(grid%Nx,grid%Ny,grid%Nz,ntypes))
+  allocate(result%vel_vec_red_lev(grid%Nx,grid%Ny,grid%Nz,ntypes))
+  result%vel_vec_red_lev=1.
+  result%velocity_counter=0.
+  do i=1,nvelocities/2
+     every_second_index(i)=i*2
+     first_half_indices(i)=i
+  enddo
+
+
   !! birth profile
   if(inputs%calc_birth.eq.1)then
      allocate(result%birth_dens(grid%Nx,grid%Ny,grid%Nz,3,npitch_birth))
@@ -4108,6 +4230,9 @@ program fidasim
        , diag%los_name)
   !! result arrays
   deallocate(result%neut_dens)
+  deallocate(result%velocity_vectors)
+  deallocate(result%velocity_counter)
+  deallocate(result%vel_vec_red_lev)
   if(inputs%calc_spec.eq.1)deallocate(result%spectra)
   if(inputs%calc_birth.eq.1)deallocate(result%birth_dens) 
 
