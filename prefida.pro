@@ -204,7 +204,10 @@ PRO make_beam_grid,inputs,grid,err
           dx:dx,dy:dy,dz:dz,dr:dr,drmin:drmin,dv:dv,ng:ng,$
           r_grid:r_grid,phi_grid:phi_grid,$
           w_grid:w_grid,v_grid:v_grid,u_grid:u_grid,$
-          x_grid:x_grid,y_grid:y_grid,z_grid:z_grid}
+          x_grid:x_grid,y_grid:y_grid,z_grid:z_grid,$
+          xmin:inputs.xmin,ymin:inputs.ymin,zmin:inputs.zmin,$
+          xmax:inputs.xmax,ymax:inputs.ymax,zmax:inputs.zmax}
+
     err=0
     GET_OUT:
 END
@@ -250,8 +253,8 @@ PRO prepare_beam,inputs,nbi,nbgeom
     GET_OUT:
 END
 
-FUNCTION cube_intersect,rc,dr,r0,rf
-    vi = (rf-r0)
+PRO grid_intersect,rc,dr,r0,rf,intersect,r1,r2
+    vi = rf-r0
     vi = vi/sqrt(total(vi*vi))
 
     side_inter = dblarr(6)
@@ -270,15 +273,66 @@ FUNCTION cube_intersect,rc,dr,r0,rf
     w = where(side_inter ne 0,nw)
     if nw lt 2 then begin
         intersect = 0.0
+        r1 = r0
+        r2 = rf
     endif else begin
         i = 0
         while total(ipnts[*,w[0]] eq ipnts[*,w[i+1]]) eq 3 do begin
             i=i+1
         endwhile
-        intersect = sqrt( total( (ipnts[*,w[0]] - ipnts[*,w[i+1]])^2.0 ) )
+        r1 = ipnts[*,w[0]]
+        r2 = ipnts[*,w[i+1]]
+        intersect = sqrt(total((r1-r2)^2.0))
     endelse
 
-    return, intersect
+END
+
+PRO get_grid_index,grid,r,ind
+    ind = intarr(3)
+    num = [grid.nx,grid.ny,grid.nz]
+    mini = [min(grid.xc),min(grid.yc),min(grid.zc)]
+    for i=0,2 do begin
+        ind[i] = floor((r[i] - (mini[i] - 0.5*grid.dr[i]))/grid.dr[i])
+        ind[i] = ind[i] > 0
+        ind[i] = ind[i] < num[i]-1
+    endfor
+END
+
+PRO track3d,grid,r0,v0,icell,pcell,tcell,nstep=nstep
+
+    num = [grid.nx,grid.ny,grid.nz]
+
+    if not keyword_set(nstep) then nstep = max(num)+1
+
+    get_grid_index,grid,r0,ind
+
+    sgn = intarr(3)
+    for i=0,2 do begin
+        if v0[i] gt 0.0 then sgn[i] = 1
+        if v0[i] lt 0.0 then sgn[i] =-1
+        if v0[i] eq 0.0 then v0[i] = 1.0d-30
+    endfor
+
+    pcell = dblarr(3,nstep)
+    icell = intarr(3,nstep)
+    tcell = dblarr(nstep)
+    ri = r0
+    cc=0L
+    for i=0,nstep-1
+        dt_arr = (([grid.xc[ind[0]],grid.yc[ind[1]],grid.zc[ind[2]]] + 0.5*sgn*grid.dr) - ri)/v0
+        tmp = min(dt_arr,minloc)
+        pcell[*,cc] = ri + v0*dt_arr[minloc]*.5
+        ri = ri + v0*dt_arr[minloc]
+        tcell[cc] = dt_arr[minloc]
+        icell[*,cc] = ind
+        ind[minloc] += sgn[minloc]
+        if ind[minloc] ge num[minloc] then break
+        if ind[minloc] lt 0 then break
+        cc+=1
+    endfor
+    pcell = pcell[*,0:cc]
+    tcell = tcell[0:cc]
+    icell = icell[*,0:cc]
 END
 
 PRO fida_los_wght,grid,xlens,ylens,zlens,xlos,ylos,zlos,weight,err_arr
@@ -286,7 +340,6 @@ PRO fida_los_wght,grid,xlens,ylens,zlens,xlos,ylos,zlos,weight,err_arr
     nx=grid.nx
     ny=grid.ny
     nz=grid.nz
-    dr=grid.dr
 
     nchan   = n_elements(xlens)
     err_arr = dblarr(nchan)
@@ -296,14 +349,22 @@ PRO fida_los_wght,grid,xlens,ylens,zlens,xlos,ylos,zlos,weight,err_arr
         xyzlens = [xlens[chan],ylens[chan],zlens[chan]]
         xyzlos  = [xlos[chan], ylos[chan], zlos[chan]]
 
-        for k=0,nz-1 do begin
-            for j=0,ny-1 do begin
-                for i=0,nx-1 do begin
-                    rc = [grid.xc[i],grid.yc[i],grid.zc[i]]
-                    weight[i,j,k,chan] = cube_intersect(rc,dr,xyzlens,xyzlos)
-                endfor
+        ;; Calculate grid center rc and sides length dr
+        dr = ([grid.xmax-grid.xmin,grid.ymax-grid.ymin,grid.zmax-grid.zmin] + grid.dr)
+        rc = ([grid.xmin,grid.ymin,grid.zmin]-0.5*grid.dr) + 0.5*dr
+
+        ;; Check if viewing chord intersects beam grid
+        grid_intersect,rc,dr,xyzlens,xyzlos,length,r_enter,r_exit
+        if length gt 0.0 then begin
+            ;; Calculate distance traveled through each grid cell
+            vi = xyzlos-xyzlens
+            vi = vi/sqrt(total(vi*vi)) ;;This makes time == distance
+            track3d,grid,r_enter,vi,icell,pcell,tcell
+            print,total(tcell),length
+            for i=0,n_elements(tcell)-1 do begin
+                weight[icell[0,i],icell[1,i],icell[2,i],chan] = tcell[i]
             endfor
-        endfor
+        endif
 
         w = where(weight[*,*,*,chan] gt 0.0,nw)
         if nw le 1 then begin
@@ -371,8 +432,8 @@ PRO npa_los_wght,los,grid,weight,err_arr
         xmin=-1.1d0*rd[chan]
         ymax= 1.1d0*rd[chan]
         xmax= 1.1d0*rd[chan]
-        x = xmin + dindgen(nx)*(xmax-xmin)/nx
-        y = ymin + dindgen(ny)*(ymax-ymin)/ny
+        x = xmin + dindgen(nx)*(xmax-xmin)/(nx-1)
+        y = ymin + dindgen(ny)*(ymax-ymin)/(ny-1)
         dx=abs(x[1]-x[0])
         dy=abs(y[1]-y[0])
         xd = reform(rebin(x,nx,ny,/sample),nx*ny)
