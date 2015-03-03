@@ -57,7 +57,7 @@ FUNCTION d3d_beams,inputs
 
 	;;SAVE IN NBI STRUCTURE
 	nbi={einj:einj,pinj:pinj,full:ffracs,half:hfracs,third:tfracs,$
-		 xyz_src:reform(xyz_src[inputs.isource,*]),xyz_pos:reform(xyz_pos[inputs.isource,*]),bmwidra:bmwidra,bmwidza:bmwidza,$
+		 uvw_src:reform(xyz_src[inputs.isource,*]),uvw_pos:reform(xyz_pos[inputs.isource,*]),bmwidra:bmwidra,bmwidza:bmwidza,$
 		 divy:divy[*,inputs.isource],divz:divz[*,inputs.isource],focy:focy[inputs.isource],focz:focz[inputs.isource]}
 	return,nbi
 END

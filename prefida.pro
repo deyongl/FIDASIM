@@ -158,8 +158,6 @@ PRO make_beam_grid,inputs,beam_grid,err
 
     err=1
 
-    make_rot_mat,inputs.alpha,inputs.beta,Arot,Brot,Crot
-
     nx=inputs.nx
     ny=inputs.ny
     nz=inputs.nz
@@ -186,11 +184,17 @@ PRO make_beam_grid,inputs,beam_grid,err
     drmin=min(dr)
     dv=dx*dy*dz
 
-    ;;Rotate all grid points to machine coordinates
-    xyz_to_uvw,inputs.alpha,inputs.beta,xc,yc,zc,uc,vc,wc,origin=inputs.origin
+    xxc = dblarr(ng) & yyc = dblarr(ng) & zzc = dblarr(ng)
+    for i=0L,nx-1 do for j=0L,ny-1 do for k=0L,nz-1 do begin
+        l=i+nx*j+nx*ny*k
+        xxc[l]=xc[i] & yyc[l]=yc[j] & zzc[l]=zc[k]
+    endfor
 
-    rgrid=sqrt(uc^2+vc^2)
-    phigrid=atan(vc,uc)
+    ;;Rotate all grid points to machine coordinates
+    xyz_to_uvw,inputs.alpha,inputs.beta,xxc,yyc,zzc,uuc,vvc,wwc,origin=inputs.origin
+
+    rgrid=sqrt(uuc^2+vvc^2)
+    phigrid=atan(vvc,uuc)
 
     r_grid=dblarr(nx,ny,nz) & phi_grid=r_grid
     w_grid=dblarr(nx,ny,nz) & u_grid=w_grid & v_grid=w_grid
@@ -198,11 +202,11 @@ PRO make_beam_grid,inputs,beam_grid,err
     for i=0L,nx-1 do for j=0L,ny-1 do for k=0L,nz-1 do begin
         l=i+nx*j+nx*ny*k
         r_grid[i,j,k]=rgrid[l] & phi_grid[i,j,k]=phigrid[l]
-        u_grid[i,j,k]=uc[l] & v_grid[i,j,k]=vc[l] & w_grid[i,j,k]=wc[l]
-        x_grid[i,j,k]=xc[l] & y_grid[i,j,k]=yc[l] & z_grid[i,j,k]=zc[l]
+        u_grid[i,j,k]=uuc[l] & v_grid[i,j,k]=vvc[l] & w_grid[i,j,k]=wwc[l]
+        x_grid[i,j,k]=xxc[l] & y_grid[i,j,k]=yyc[l] & z_grid[i,j,k]=zzc[l]
     endfor
 
-    beam_grid={nx:nx,ny:ny,nz:nz,xc:xc,yc:yc,zc:zc,uc:uc,vc:vc,wc:wc,$
+    beam_grid={nx:nx,ny:ny,nz:nz,xc:xc,yc:yc,zc:zc,$
                dx:dx,dy:dy,dz:dz,dr:dr,drmin:drmin,dv:dv,ng:ng,$
                r_grid:r_grid,phi_grid:phi_grid,$
                w_grid:w_grid,v_grid:v_grid,u_grid:u_grid,$
@@ -224,10 +228,13 @@ PRO prepare_beam,inputs,nbi,nbgeom
         goto, GET_OUT
     endif
 
+    origin = inputs.origin
     us = nbi.uvw_src[0] & vs = nbi.uvw_src[1] & ws = nbi.uvw_src[2]
     up = nbi.uvw_pos[0] & vp = nbi.uvw_pos[1] & wp = nbi.uvw_pos[2]
-    uvw_to_xyz,inputs.alpha,inputs.beta,us,vs,ws,xs,ys,zs,origin=inputs.origin
-    uvw_to_xyz,inputs.alpha,inputs.beta,up,vp,wp,xp,yp,zp,origin=inputs.origin
+    uvw_to_xyz,inputs.alpha,inputs.beta,us,vs,ws,xs,ys,zs,origin=origin
+    uvw_to_xyz,inputs.alpha,inputs.beta,up,vp,wp,xp,yp,zp,origin=origin
+    uvw_to_xyz,inputs.alpha,inputs.beta,0.0,0.0,0.0,mo1,mo2,mo3,origin=origin
+    xyz_center = [mo1,mo2,mo3]
     xyz_src = [xs,ys,zs]
     xyz_pos = [xp,yp,zp]
 
@@ -240,12 +247,12 @@ PRO prepare_beam,inputs,nbi,nbgeom
     print,'Beam injection end point in machine coordinates'
     print, nbi.uvw_pos
     print,'Machine center in beam coordinates'
-    print, uvw_origin
+    print, xyz_center
     print,'Beam injection start point in beam coordinates'
     print, xyz_src
     print,'Beam injection end point in beam coordinates'
     print, xyz_pos
-    print,'Grid rotation angles that would align it with the beam'
+    print,'Beam grid rotation angles that would align it with the beam'
     print,'Alpha'
     print, ALPHA/!DPI*180,FORMAT='(F20.10)'
     print,'Beta'
@@ -282,8 +289,16 @@ PRO grid_intersect,rc,dr,r0,rf,intersect,r1,r2
         while total(ipnts[*,w[0]] eq ipnts[*,w[i+1]]) eq 3 do begin
             i=i+1
         endwhile
-        r1 = ipnts[*,w[0]]
-        r2 = ipnts[*,w[i+1]]
+        dis1 = total((ipnts[*,w[0]]-r0)^2.0)
+        dis2 = total((ipnts[*,w[i+1]]-r0)^2.0)
+        if dis2 gt dis1 then begin
+            r1 = ipnts[*,w[0]]
+            r2 = ipnts[*,w[i+1]]
+        endif else begin
+            r2 = ipnts[*,w[0]]
+            r1 = ipnts[*,w[i+1]]
+        endelse
+
         intersect = sqrt(total((r1-r2)^2.0))
     endelse
 
@@ -296,7 +311,7 @@ PRO get_grid_index,grid,r,ind
     for i=0,2 do begin
         ind[i] = floor((r[i] - (mini[i] - 0.5*grid.dr[i]))/grid.dr[i])
         ind[i] = ind[i] > 0
-        ind[i] = ind[i] < num[i]-1
+        ind[i] = ind[i] < (num[i]-1)
     endfor
 END
 
@@ -304,7 +319,7 @@ PRO track3d,grid,r0,v0,icell,pcell,tcell,nstep=nstep
 
     num = [grid.nx,grid.ny,grid.nz]
 
-    if not keyword_set(nstep) then nstep = max(num)+1
+    if not keyword_set(nstep) then nstep = 1000
 
     get_grid_index,grid,r0,ind
 
@@ -320,7 +335,7 @@ PRO track3d,grid,r0,v0,icell,pcell,tcell,nstep=nstep
     tcell = dblarr(nstep)
     ri = r0
     cc=0L
-    for i=0,nstep-1
+    for i=0,nstep-1 do begin
         dt_arr = (([grid.xc[ind[0]],grid.yc[ind[1]],grid.zc[ind[2]]] + 0.5*sgn*grid.dr) - ri)/v0
         tmp = min(dt_arr,minloc)
         pcell[*,cc] = ri + v0*dt_arr[minloc]*.5
@@ -328,9 +343,9 @@ PRO track3d,grid,r0,v0,icell,pcell,tcell,nstep=nstep
         tcell[cc] = dt_arr[minloc]
         icell[*,cc] = ind
         ind[minloc] += sgn[minloc]
+        cc+=1
         if ind[minloc] ge num[minloc] then break
         if ind[minloc] lt 0 then break
-        cc+=1
     endfor
     pcell = pcell[*,0:cc]
     tcell = tcell[0:cc]
@@ -357,12 +372,18 @@ PRO fida_los_wght,grid,xlens,ylens,zlens,xlos,ylos,zlos,weight,err_arr
 
         ;; Check if viewing chord intersects beam grid
         grid_intersect,rc,dr,xyzlens,xyzlos,length,r_enter,r_exit
+
         if length gt 0.0 then begin
             ;; Calculate distance traveled through each grid cell
             vi = xyzlos-xyzlens
             vi = vi/sqrt(total(vi*vi)) ;;This makes time == distance
             track3d,grid,r_enter,vi,icell,pcell,tcell
-            print,total(tcell),length
+            if abs(total(tcell)-length) gt 0.01 then begin
+                error,'Channel #'+strtrim(string(chan),1)+': total(tcell) =/= intersection length'
+                print,'total(tcell) = ',total(tcell)
+                print,'length = ',length
+                err_arr[chan]=1
+            endif
             for i=0,n_elements(tcell)-1 do begin
                 weight[icell[0,i],icell[1,i],icell[2,i],chan] = tcell[i]
             endfor
@@ -417,9 +438,9 @@ PRO npa_los_wght,los,grid,weight,err_arr
     rd=los.rd[w]
     ra=los.ra[w]
     h=los.h[w]
-    xlens=los.xlens[w] & xlos=los.xlos[w]
-    ylens=los.ylens[w] & ylos=los.ylos[w]
-    zlens=los.zlens[w] & zlos=los.zlos[w]
+    xlens=los.ulens[w] & xlos=los.ulos[w]
+    ylens=los.vlens[w] & ylos=los.vlos[w]
+    zlens=los.wlens[w] & zlos=los.wlos[w]
 
     weight  = replicate(0.d0,grid.nx,grid.ny,grid.nz,nchan)
     err_arr=replicate(0.0,nchan)
@@ -481,9 +502,11 @@ PRO prepare_chords,inputs,grid,chords,fida
     ;;DECLARE ARRAYS
     err_arr=dblarr(chords.nchan) + 1
     weight  = replicate(0.d0,nx,ny,nz,chords.nchan)
+    ulos  = chords.ulos  & vlos  = chords.vlos  & wlos  = chords.wlos
+    ulens = chords.ulens & vlens = chords.vlens & wlens = chords.wlens
 
     ;;CALCULATE RADIUS IN MACHINE COORDINATES
-    rlos=sqrt(chords.ulos^2.0 + chords.vlos^2.0)
+    rlos=sqrt(ulos^2.0 + vlos^2.0)
 
     ;;ROTATE CHORDS INTO BEAM GRID COORDINATES
     uvw_to_xyz,inputs.alpha,inputs.beta,ulens,vlens,wlens,xlens,ylens,zlens,origin=inputs.origin
@@ -574,7 +597,7 @@ PRO prepare_profiles,inputs,profiles,plasma,err
 
     ;;-------SAVE-------
     plasma={rho:rho,rho_max:rho_max,nrho:nrho,ab:inputs.ab,ai:inputs.ai,$
-            te:te,ti:ti,omega:omega,dene:dene,denp:denp,deni:deni,denf:denf,zeff:zeff}
+            te:te,ti:ti,omega:omega,dene:dene,denp:denp,deni:deni,zeff:zeff}
     err=0
     GET_OUT:
 END
@@ -672,7 +695,7 @@ PRO transp_fbm,inputs,grid,fbm_struct,err
     dw=grid.dw
 
     nr=grid.nr
-    nz=grid.nw
+    nw=grid.nw
     rgrid=grid.rr
     wgrid=grid.ww
 
@@ -686,11 +709,14 @@ PRO transp_fbm,inputs,grid,fbm_struct,err
                   ,/grid,/SHEPARDS,triangles=tr) >0.
 
     ;; FBM
+    cnt=0.0
     for i=0,nenergy-1 do begin
         for j=0,npitch-1 do begin
             fbm_grid[i,j,*,*]=griddata(r2d,z2d,fbm[i,j,*], $
                               xout=rgrid,yout=wgrid, $
                               /grid,/SHEPARDS,triangles=tr) >0.
+            cnt+=1
+            print,format='(f7.2,"%",A,$)',100.0*(cnt/(nenergy*npitch)),string(13b)
         endfor
     endfor
 
@@ -719,7 +745,7 @@ PRO transp_fbm,inputs,grid,fbm_struct,err
     theta_bdry[n+1] = theta[0] + 2.*!pi
     ;; -- express (r_pts,z_pts) in (r,theta) coordinates --
     x_pts = grid.r2d - rmaxis
-    y_pts = grid.z2d - zmaxis
+    y_pts = grid.w2d - zmaxis
     r_pts = sqrt(x_pts^2 + y_pts^2)
     theta_pts=atan(y_pts,x_pts)
     ;; -- interpolate to get the radial position of the boundary
@@ -784,8 +810,6 @@ PRO write_namelist,inputs
     printf,55,f='("calc_birth = ",i2 , "    !! Calculate Birth Profile")',inputs.calc_birth
     printf,55,f='("calc_fida_wght = ",i2 , "    !! Calculate FIDA weights")',inputs.calc_fida_wght
     printf,55,f='("calc_npa_wght = ",i2 , "    !! Calculate NPA weights")',inputs.calc_npa_wght
-    printf,55,f='("calc_brems = ",i2,"    !! Calculate Bremsstrahlung else load from inputs")',$
-              inputs.calc_brems
     printf,55,f='("load_neutrals = ",i2,"    !! Load Neutrals")',inputs.load_neutrals
     printf,55,f='("load_fbm = ",i2,"    !! Load FBM")',inputs.load_fbm
     printf,55,f='("interactive = ",i2,"    !! Show Progress")',inputs.interactive
@@ -830,7 +854,7 @@ PRO check_inputs,inputs,err
           "n_fast","n_nbi","n_halo","ne_wght","np_wght","nphi_wght",$
           "emax_wght","ichan_wght","dwav_wght","wavel_start_wght","wavel_end_wght",$
           "calc_npa","calc_spec","calc_birth","calc_fida_wght","calc_npa_wght",$
-          "load_neutrals","load_fbm","interactive"]
+          "load_neutrals","load_fbm","interactive","comment"]
 
     inVars=strlowcase(TAG_NAMES(inputs))
 
@@ -842,7 +866,7 @@ PRO check_inputs,inputs,err
     for i=0,n_elements(inVars)-1 do begin
         w=where(inVars[i] eq vars,nw)
         if nw eq 0 then begin
-            info,'Extra variable "'+inVars+'" found in the input file'
+            info,'Extra variable "'+inVars[i]+'" found in the input file'
         endif
     endfor
 
@@ -868,7 +892,7 @@ PRO check_inputs,inputs,err
 
     if inputs.alpha gt 2*!DPI or inputs.beta gt 2*!DPI then begin
         error,'Angles must be in radians'
-        goto, GET_OUT
+        err=1
     endif
 
     if err ne 0 then begin
@@ -938,6 +962,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     !path = !path + ":" + expand_path(inputs.install_dir)
 
     ;;MAKE INTERPOLATING GRID
+    info,'Making interpolation grid...'
     make_interpolating_grid,inputs,inter_grid,err
     if err eq 1 then begin
         error,'Interpolating grid creation failed. Exiting...'
@@ -1027,7 +1052,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
               strlowcase(inputs.device)+'_plots.pro'
     if keyword_set(plot) and FILE_TEST(plot_file) then begin
         CALL_PROCEDURE, strlowcase(inputs.device)+'_plots',$
-                        inputs,beam_grid,nbi,chords,fida,equil,nbgeom,plasma
+                        inputs,inter_grid,beam_grid,nbi,chords,fida,equil,nbgeom,plasma,fbm
     endif
 
     ;;SAVE STRUCTURES
@@ -1071,6 +1096,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ;;DEFINE DIMENSIONS
     ncdf_control,ncid
     one_id = ncdf_dimdef(ncid,'dim001',1)
+    three_id = ncdf_dimdef(ncid,'dim003',3)
 
     ndiag_id=ncdf_dimdef(ncid,'ndiag',n_elements(inputs.diag))
     strmax_id=ncdf_dimdef(ncid,'maxstr',max(strlen(inputs.diag)))
@@ -1263,7 +1289,6 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
 
     ;;WRITE FBM VARIABLES
     if inputs.load_fbm then begin
-        ncdf_varput,ncid,gdim_varid,long(fbm.ngrid)
         ncdf_varput,ncid,edim_varid,long(fbm.nenergy)
         ncdf_varput,ncid,pdim_varid,long(fbm.npitch)
         ncdf_varput,ncid,cdftime_varid,double(fbm.cdf_time)
@@ -1288,7 +1313,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ncdf_varput,ncid,er_varid, double(equil.er)
     ncdf_varput,ncid,ew_varid, double(equil.ew)
     ncdf_varput,ncid,rho_varid, double(plasma.rho)
-    ncdf_varput,rho2d_varid, double(equil.rho)
+    ncdf_varput,ncid,rho2d_varid, double(equil.rho2d)
     ncdf_varput,ncid,rhomax_varid, double(plasma.rho_max)
 
     ;;WRITE LINE OF SIGHT (LOS)

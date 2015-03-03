@@ -65,7 +65,7 @@ FUNCTION d3d_equil,inputs,grid
 		b_w[i,j]  =interpolate(bz1,[rgrid],[zgrid])
 	endfor
 
-	equil={g:g,rho_grid:rhogrid,br:b_r,bphi:b_phi,bw:b_w,er:e_r,ew:e_w,err:0}
+	equil={g:g,rho2d:rhogrid,br:b_r,bphi:b_phi,bw:b_w,er:e_r,ew:e_w,err:0}
 	GET_OUT:
 	return,equil
 END

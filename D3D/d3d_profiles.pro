@@ -30,7 +30,7 @@ FUNCTION d3d_profiles,inputs,save=save
 	omega_string=dir+'dtrot'+profile_str
 
 	;;CHECK IF FILES EXIST
-	file_array=[ne_string,te_string,ti_string,imp_string,vtor_string]
+	file_array=[ne_string,te_string,ti_string,imp_string,omega_string]
 	err_array=dblarr(n_elements(file_array))
 	for i=0,n_elements(file_array)-1 do begin
 		if file_test(file_array[i]) eq 0 then begin
@@ -76,7 +76,7 @@ FUNCTION d3d_profiles,inputs,save=save
 		te=interpol(te,te_rho,rho) > 0.0
 		ti=interpol(ti,ti_rho,rho) > 0.0
 		zeff=interpol(zeff,zeff_rho,rho) > 1.0
-		vtor=interpol(vtor,omega_rho,rho)
+		omega=interpol(omega,omega_rho,rho)
 
 		;;SAVE IN PROFILE STRUCTURE
 		profiles={rho:rho,te:te,ti:ti,omega:omega,dene:dene,zeff:zeff,err:0}

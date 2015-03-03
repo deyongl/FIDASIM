@@ -286,7 +286,7 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 
 	;;	IDL> help,equil
 	;;	** Structure <1d474638>, 10 tags, length=6636160, data length=6636138, refs=1:
-	;;	   RHO_GRID        FLOAT     Array[40, 60]
+	;;	   RHO2D           FLOAT     Array[40, 60]
 	;;	   BR              DOUBLE    Array[40, 60]
 	;;	   BPHI            DOUBLE    Array[40, 60]
 	;;	   BW              DOUBLE    Array[40, 60]
@@ -321,7 +321,7 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 	;;	   FOCZ            DOUBLE           1000.0000
 
 	;;FOR CONVENIENCE HERE ARE THE MINIMUM STRUCTURE DEFINITIONS
-	equil={rho_grid:rho_grid,$	   			;;FIDA GRID IN MAGNETIC FLUX COORDINATES (RHO)
+	equil={rho2d:rho2d,$	   			    ;;INTERP. GRID IN MAGNETIC FLUX COORDINATES (RHO)
 		   br:br,$					   		;;R MAGNETIC FIELD COMPONENT AT GRID POINTS
 		   bphi:bphi,$					   	;;PHI MAGNETIC FIELD COMPONENT AT GRID POINTS
 		   bw:bw,$					   		;;W MAGNETIC FIELD COMPONENT AT GRID POINTS

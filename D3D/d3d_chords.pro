@@ -91,7 +91,7 @@ FUNCTION get_oblique_geom,shot
     wlens=replicate(122.0,n_elements(umid))
 	return, {chords:chords,ulens:ulens,vlens:vlens,$
              wlens:wlens,ulos:umid,vlos:vmid,wlos:wmid,$
-             ra:xmid*0,rd:xmid*0,h:umid*0}
+             ra:umid*0,rd:umid*0,h:umid*0}
 
 END
 
