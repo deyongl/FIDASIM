@@ -1,13 +1,13 @@
-!!FIDASIM4.0 
+!!FIDASIM4.0
 !Original version from W. W. Heidbrink 2007
 !rewritten in F90 by Benedikt Geiger 2012 (IPP-Garching, ASDEX Upgrade)
 !The main routine (fidasim) is at the end of the file!
 module application
   implicit none
-  !!                      Definition for the kind of the variables: 
+  !!                      Definition for the kind of the variables:
   integer , parameter   :: long      = kind(int(1))
   integer , parameter   :: float     = kind(1.e0)
-  integer , parameter   :: double    = kind(1.d0) 
+  integer , parameter   :: double    = kind(1.d0)
   !!                      Indizes of the different components:
   character(100)        :: result_dir
   character(100)        :: root_dir
@@ -15,8 +15,8 @@ module application
   integer , parameter   :: nbih_type = 2 ! half energy NBI spectra/density
   integer , parameter   :: nbit_type = 3 ! third energy NBI spectra/density
   integer , parameter   :: halo_type = 4 ! halo spectra/density
-  integer , parameter   :: afida_type = 5 ! fida spectra/density 
-  integer , parameter   :: pfida_type = 6 ! fida spectra/density 
+  integer , parameter   :: afida_type = 5 ! fida spectra/density
+  integer , parameter   :: pfida_type = 6 ! fida spectra/density
   integer , parameter   :: ntypes    = 6 ! number of different types of neutrals
   !! random number geneator save variables
   real(double)           :: ran_am
@@ -51,9 +51,9 @@ module application
 
   integer, dimension(1) :: minpos  !! dummy array to determine minloc
   !!Numerical Settings
-  integer          :: nlevs             !!nr of quantum states  
+  integer          :: nlevs             !!nr of quantum states
   integer,parameter:: npitch_birth=100    !!nr pitches in birth profile
-  real(double),parameter :: nr_halo_neutrate=200. !! to average halo neut-rate 
+  real(double),parameter :: nr_halo_neutrate=200. !! to average halo neut-rate
   real(double) :: colrad_threshold=1.d5 !! to speed up simulation!
   !! 1.d6 is a very low density rate per marker (typially ~1.d12)!
   !! it should not affect the calculation
@@ -62,7 +62,7 @@ module application
   !! save velocity vectors of individual species
   integer,parameter :: nvelocities=100 !! n velocity vectors
   integer, dimension(nvelocities/2) :: every_second_index
-  integer, dimension(nvelocities/2) :: first_half_indices 
+  integer, dimension(nvelocities/2) :: first_half_indices
  type prof_type
      !! kinetic profiles
      integer::nrho
@@ -86,14 +86,14 @@ module application
      real(double)   :: dv    !! volume of cells
      integer(long)  :: ntrack!! Maximum Nr. of cells for tracking
      real(double), dimension(:), allocatable     :: xx,xxc
-     real(double), dimension(:), allocatable     :: yy,yyc 
+     real(double), dimension(:), allocatable     :: yy,yyc
      real(double), dimension(:), allocatable     :: zz,zzc
      real(double), dimension(:), allocatable     :: rr,rrc
      real(double), dimension(:,:), allocatable   :: rho !! Normalized flux
      real(double), dimension(:,:,:), allocatable :: Brzt,E
   end type grid_type
 
-  type nbi_type 
+  type nbi_type
      integer(long)  :: isource           !! number of the NBI
      real(double)   :: dv                !! half width in y direction
      real(double)   :: dw                !! half width in z direction
@@ -107,8 +107,8 @@ module application
      real(double)                 :: pinj    !! NBI power    [MW]
      real(double)                 :: vinj    !! NBI velocity [cm/s]
      real(double), dimension(3,3) :: Arot    !! Rotation matrizes of NBI
-     real(double), dimension(3,3) :: Brot  
-     real(double), dimension(3,3) :: Crot 
+     real(double), dimension(3,3) :: Brot
+     real(double), dimension(3,3) :: Crot
   end type nbi_type
 
   type tables_type
@@ -136,7 +136,7 @@ module application
      integer(long)                                 :: nr_ti_neut
      integer(long)                                 :: nr_ti_cx
      !! TABLES
-     real(double), dimension(:,:,:,:) , allocatable :: qp 
+     real(double), dimension(:,:,:,:) , allocatable :: qp
      real(double), dimension(:,:,:,:) , allocatable :: qi
      real(double), dimension(:,:,:,:) , allocatable :: qe
      real(double), dimension(:,:,:,:) , allocatable :: cx
@@ -147,16 +147,16 @@ module application
   type fbm_type
      integer(long) :: nr
      real(double)  :: rmin
-     real(double)  :: dr   
+     real(double)  :: dr
      integer(long) :: nz
      real(double)  :: zmin
-     real(double)  :: dz   
+     real(double)  :: dz
      !! energy
      integer(long) :: nenergy
      real(double)  :: emax
      real(double)  :: emin
      real(double)  :: dE
-     real(double)  :: eran    
+     real(double)  :: eran
      !!pitch
      integer(long) :: npitch
      real(double)  :: pmax
@@ -166,7 +166,7 @@ module application
      real(double),dimension(:)      ,allocatable :: energy  !! Energy array
      real(double),dimension(:)      ,allocatable :: pitch   !! Pitch array
      real(double),dimension(:)      ,allocatable :: rgrid
-     real(double),dimension(:)      ,allocatable :: zgrid   
+     real(double),dimension(:)      ,allocatable :: zgrid
      real(double),dimension(:,:,:,:),allocatable :: fbm !! fast-ion distribution
      real(double),dimension(:,:)    ,allocatable :: denf!! fast-ion density
   end type fbm_type
@@ -202,7 +202,7 @@ module application
   end type npa_type
 
   type result_type
-     real(double),dimension(:,:,:,:,:),allocatable:: neut_dens! Density 
+     real(double),dimension(:,:,:,:,:),allocatable:: neut_dens! Density
      real(double),dimension(:,:,:,:)    ,allocatable:: spectra
      real(double),dimension(:,:,:,:,:),allocatable:: birth_dens!Deposition prof
      real(double), dimension(:,:,:,:,:,:), allocatable :: velocity_vectors
@@ -214,31 +214,31 @@ module application
      integer(long) :: shot_number
      real(double)  :: time
      character(15) :: runid
-     character(4)  :: diag 
+     character(4)  :: diag
      !! Monte Carlo Settings
      integer(long) :: nr_fida
      integer(long) :: nr_ndmc
      integer(long) :: nr_dcx
-     integer(long) :: nr_halo 
+     integer(long) :: nr_halo
      integer(long) :: nr_npa
      !! general settings
      integer(long) :: simfa !! simulate fast ion switch
      integer(long) :: calc_spec
      integer(long) :: load_neutrals
      integer(long) :: background_density
-     integer(long) :: npa 
+     integer(long) :: npa
      integer(long) :: calc_wght
      integer(long) :: calc_birth
      !! Plasma parameters
      integer(long) :: impurity_charge
-     real(double)  :: btipsign 
+     real(double)  :: btipsign
      real(double)  :: ai   !! atomic mass of plasma ions
      real(double)  :: ab   !! atomic mass of beam neutrals
      !! Settings for weight function calculation
      integer(long) :: wght_gyro_resolved
      integer(long) :: nr_energy_wght
      integer(long) :: nr_pitch_wght
-     integer(long) :: nr_gyro_wght  
+     integer(long) :: nr_gyro_wght
      integer(long) :: ichan_wght
      real(double)  :: emax_wght
      real(double)  :: dwav_wght
@@ -246,9 +246,9 @@ module application
      real(double)  :: wavel_end_wght
   end type inputs_type
   !! definition of the structures:
-  type(nbi_type)     :: nbi      
-  type(grid_type)    :: grid      
-  type(tables_type)  :: tables    
+  type(nbi_type)     :: nbi
+  type(grid_type)    :: grid
+  type(tables_type)  :: tables
   type(fbm_type)     :: fbm
   type(prof_type)    :: prof
   type(npa_type)     :: npa
@@ -256,16 +256,16 @@ module application
   type(inputs_type):: inputs
   type(result_type)  :: result
   !! routines:
-  public :: ndmc      
+  public :: ndmc
   public :: halo
   public :: fida
   !! structures:
-  public :: nbi         
-  public :: grid         
-  public :: tables      
-  public :: fbm     
-  public :: inputs  
-  public :: npa  
+  public :: nbi
+  public :: grid
+  public :: tables
+  public :: fbm
+  public :: inputs
+  public :: npa
   !! routines to read inputs
   public :: check
   public :: read_namelist
@@ -273,13 +273,13 @@ module application
   public :: read_grid
   public :: read_profiles
   public :: read_tables
-  public :: read_fbm  
+  public :: read_fbm
   public :: read_neutrals
-  public :: write_neutrals 
+  public :: write_neutrals
   public :: write_birth_profile
   public :: write_fida_spectra
   public :: write_nbi_halo_spectra
-contains  
+contains
   !****************************************************************************
   subroutine check(stat)
     use netcdf
@@ -293,7 +293,7 @@ contains
   subroutine read_namelist
     character(120)   :: filename
     integer :: i,j,k
-    print*,'---- loading namelist -----' 
+    print*,'---- loading namelist -----'
     filename=trim(adjustl(result_dir))//"/namelist.dat"
     open(66,file=filename)
     read(66,*) !# FIDASIM input file created...
@@ -315,7 +315,7 @@ contains
     read(66,*) inputs%wght_gyro_resolved
     read(66,*) inputs%nr_energy_wght
     read(66,*) inputs%nr_pitch_wght
-    read(66,*) inputs%nr_gyro_wght 
+    read(66,*) inputs%nr_gyro_wght
     read(66,*) inputs%ichan_wght
     read(66,*) inputs%emax_wght
     read(66,*) inputs%dwav_wght
@@ -323,22 +323,22 @@ contains
     read(66,*) inputs%wavel_end_wght
     read(66,*) !# Monte Carlo settings:
     read(66,*) inputs%nr_fida
-    read(66,*) inputs%nr_ndmc   
-    read(66,*) inputs%nr_halo   
+    read(66,*) inputs%nr_ndmc
+    read(66,*) inputs%nr_halo
     inputs%nr_dcx = inputs%nr_halo
-    read(66,*) inputs%impurity_charge 
-    read(66,*) !# Location of transp cdf file:   
-    read(66,*) !cdf-file    
-    read(66,*) !# discharge parameters:         
+    read(66,*) inputs%impurity_charge
+    read(66,*) !# Location of transp cdf file:
+    read(66,*) !cdf-file
+    read(66,*) !# discharge parameters:
     read(66,*) inputs%btipsign
-    read(66,*) inputs%ab       
-    read(66,*) inputs%ai    
-    read(66,*) !# wavelength grid:    
-    read(66,*) diag%nlambda 
+    read(66,*) inputs%ab
+    read(66,*) inputs%ai
+    read(66,*) !# wavelength grid:
+    read(66,*) diag%nlambda
     read(66,*) diag%lambdamin
     read(66,*) diag%lambdamax
     read(66,*) !# rotate
-    read(66,*) !# rotate value 
+    read(66,*) !# rotate value
     read(66,*) !# background density parametrisation
     read(66,*) !# 1
     read(66,*) !# 2
@@ -354,20 +354,20 @@ contains
   !****************************************************************************
 
 
-    
+
   !****************************************************************************
   subroutine read_grid
     character(120)   :: filename
     integer :: i,j,k
-    print*,'---- reading grid -----' 
+    print*,'---- reading grid -----'
     filename=trim(adjustl(result_dir))//"/grid.bin"
     open(66,file=filename,access='stream')
-    read(66) !# simulation grid: 
-    read(66) grid%Nx 
+    read(66) !# simulation grid:
+    read(66) grid%Nx
     read(66) grid%dx
     read(66) grid%xmin
     read(66) grid%xmax
-    read(66) grid%Ny 
+    read(66) grid%Ny
     read(66) grid%dy
     read(66) grid%ymin
     read(66) grid%ymax
@@ -395,9 +395,9 @@ contains
     read(66) grid%zzc
     read(66) grid%rrc
     close(66)
-    allocate(grid%Brzt(grid%Nr,grid%Nz,3)) 
-    allocate(grid%E(grid%Nr,grid%Nz,3)) 
-    allocate(grid%rho(grid%Nr,grid%Nz)) 
+    allocate(grid%Brzt(grid%Nr,grid%Nz,3))
+    allocate(grid%E(grid%Nr,grid%Nz,3))
+    allocate(grid%rho(grid%Nr,grid%Nz))
     grid%Brzt=0.d0 ; grid%E=0.d0 ; grid%rho=0.d0
   end subroutine read_grid
   !****************************************************************************
@@ -406,23 +406,23 @@ contains
   subroutine read_nbi
     character(120)   :: filename
     integer :: i,j,k
-    print*,'---- reading NBI data -----' 
+    print*,'---- reading NBI data -----'
     filename=trim(adjustl(result_dir))//"/nbi.dat"
     open(66,file=filename)
     read(66,*) !# Neutral beam injection
     read(66,*) nbi%dv
-    read(66,*) nbi%dw  
+    read(66,*) nbi%dw
     read(66,*) nbi%isource
-    read(66,*) nbi%divay(1) 
-    read(66,*) nbi%divay(2) 
-    read(66,*) nbi%divay(3) 
-    read(66,*) nbi%divaz(1)  
-    read(66,*) nbi%divaz(2)  
-    read(66,*) nbi%divaz(3)  
-    read(66,*) nbi%focy  
-    read(66,*) nbi%focz   
-    read(66,*) nbi%einj 
-    read(66,*) nbi%pinj 
+    read(66,*) nbi%divay(1)
+    read(66,*) nbi%divay(2)
+    read(66,*) nbi%divay(3)
+    read(66,*) nbi%divaz(1)
+    read(66,*) nbi%divaz(2)
+    read(66,*) nbi%divaz(3)
+    read(66,*) nbi%focy
+    read(66,*) nbi%focz
+    read(66,*) nbi%einj
+    read(66,*) nbi%pinj
     read(66,*) !# Species-mix (Particles):
     read(66,*) nbi%species_mix(1)
     read(66,*) nbi%species_mix(2)
@@ -432,14 +432,14 @@ contains
     read(66,*) nbi%xyz_pos(2)
     read(66,*) nbi%xyz_pos(3)
     read(66,*) !# 3 rotation matrizes 3x3
-    do j=1,3 
+    do j=1,3
        do k=1,3
           read(66,*) nbi%Arot(j,k)
           read(66,*) nbi%Brot(j,k)
           read(66,*) nbi%Crot(j,k)
        enddo
     enddo
-    close(66) 
+    close(66)
     nbi%vinj=sqrt(2.d0*nbi%einj*1.d3 &
          *e0/(inputs%ab*mass_u))*1.d2 !! [cm/s]
     print*, 'NBI #',nbi%isource+1
@@ -500,7 +500,7 @@ contains
     call check( nf90_get_var(ncid, crot_varid, nbi%Crot(:,:)) )
 
 
-    
+
     !!CLOSE netCDF FILE
     call check( nf90_close(ncid) )
     nbi%vinj=sqrt(2.d0*nbi%einj*1.d3 &
@@ -539,7 +539,7 @@ contains
     read(66) diag%los_wght(:,:,:,:)
     print*,'test4'
     close(66)
-    if (inputs%npa.eq.0) then 
+    if (inputs%npa.eq.0) then
        npa%npa_loop=1.
     else
        allocate(npa%size(diag%nchan))
@@ -661,7 +661,7 @@ contains
     if(inputs%impurity_charge.eq.5) &
          filename=trim(adjustl(root_dir))//"TABLES/qbtable.bin"
     if(inputs%impurity_charge.eq.6) &
-         filename=trim(adjustl(root_dir))//"TABLES/qctable.bin" 
+         filename=trim(adjustl(root_dir))//"TABLES/qctable.bin"
     if(inputs%impurity_charge.eq.7) &
          filename=trim(adjustl(root_dir))//"TABLES/qntable.bin"
     open(66,file=filename,access='stream')
@@ -679,14 +679,14 @@ contains
     filename='TABLES/einstein.dat'
     filename=trim(adjustl(root_dir))//"TABLES/einstein.dat"
     open(66,file=filename)
-    read(66,*)! 
+    read(66,*)!
     read(66,*)!
     read(66,*) nlev
     if(nlev.ne.nlevs) stop 'stop at "read atomics"'
     allocate(tables%einstein(nlevs,nlevs))
     do n=1,nlevs !! lower level
        do m=1,nlevs  !! upper level
-          read(66,*)tables%einstein(m,n) 
+          read(66,*)tables%einstein(m,n)
        enddo
     enddo
     close(66)
@@ -697,7 +697,7 @@ contains
   subroutine read_fbm
     character(120)  :: filename
     character(17)   :: cdf_file
-    real(double)    :: cdf_time  
+    real(double)    :: cdf_time
     logical   :: ok
     filename=trim(adjustl(result_dir))//"/fast-ion_distribution.bin"
     inquire(file=filename,exist=ok)
@@ -748,16 +748,16 @@ contains
 
 
   subroutine write_birth_profile
-    integer         :: i,j,k,p 
+    integer         :: i,j,k,p
     character(120)  :: filename
-    filename=trim(adjustl(result_dir))//"/birth.bin"    
+    filename=trim(adjustl(result_dir))//"/birth.bin"
     open (66, file =filename,access='stream')
     write(66)real(inputs%shot_number,float )
     write(66)real(inputs%time)
     write(66)real(grid%Nx,float)
     write(66)real(grid%Ny,float)
-    write(66)real(grid%Nz,float) 
-    write(66)real(npitch_birth,float) 
+    write(66)real(grid%Nz,float)
+    write(66)real(npitch_birth,float)
     write(66)real(result%birth_dens(:,:,:,:,:),float)
     close (66)
     print*, 'birth profile written to:      ',filename
@@ -768,14 +768,14 @@ contains
     character(120)  :: filename
     real(double), dimension(3)                  :: ipos      !! start position
 
-    filename=trim(adjustl(result_dir))//"/neutrals.bin"    
+    filename=trim(adjustl(result_dir))//"/neutrals.bin"
     open (66, file =filename,access='stream')
     write(66)real(inputs%shot_number,float )
     write(66)real(inputs%time)
     write(66)real(grid%Nx,float)
     write(66)real(grid%Ny,float)
-    write(66)real(grid%Nz,float) 
-    write(66)real(nlevs  ,float) 
+    write(66)real(grid%Nz,float)
+    write(66)real(nlevs  ,float)
     write(66)real(result%neut_dens(:,:,:,:,nbif_type),float)
     write(66)real(result%neut_dens(:,:,:,:,nbih_type),float)
     write(66)real(result%neut_dens(:,:,:,:,nbit_type),float)
@@ -798,7 +798,7 @@ contains
     !! correction of fluxes for gyro-angle restrictions
     npa%wght(:)=npa%wght(:)*(4.*npa%opening_angle/2./pi)
 
-    filename=trim(adjustl(result_dir))//"/npa.bin"      
+    filename=trim(adjustl(result_dir))//"/npa.bin"
     open (66, file =filename,access='stream')
     write(66)inputs%shot_number
     write(66)real(inputs%time,float)
@@ -816,17 +816,17 @@ contains
     print*, 'NPA data written to: ',filename
     deallocate(output)
   end subroutine write_npa
-  
+
   subroutine write_nbi_halo_spectra
     integer         :: i,j,k,ichan
     character(120)  :: filename
     real(double), dimension(:)  , allocatable :: lambda_arr
     !! ------------------------ calculate wavelength array ------------------ !!
     allocate(lambda_arr(diag%nlambda))
-    do i=1,diag%nlambda 
+    do i=1,diag%nlambda
        lambda_arr(i)=(i-0.5)*diag%dlambda*0.1d0 &
             +diag%lambdamin*0.1d0
-    enddo 
+    enddo
     !! convert [Ph/(s*wavel_bin*cm^2*all_directions)] to [Ph/(s*nm*sr*m^2)]!
     result%spectra(:,:,:,:)=result%spectra(:,:,:,:)/(0.1d0*diag%dlambda) &
          /(4.d0*pi)*1.d4
@@ -845,7 +845,7 @@ contains
     write(66)real(result%spectra(:,:,:,nbih_type),float)
     write(66)real(result%spectra(:,:,:,halo_type),float)
     close (66)
-    !! result arrays 
+    !! result arrays
     deallocate(lambda_arr)
     print*, 'NBI and HALO spectra written to: ', filename
   end subroutine write_nbi_halo_spectra
@@ -856,21 +856,21 @@ contains
     real(double), dimension(:)  , allocatable :: lambda_arr
     !! ------------------------ calculate wavelength array ------------------ !!
     allocate(lambda_arr(diag%nlambda))
-    do i=1,diag%nlambda 
+    do i=1,diag%nlambda
        lambda_arr(i)=(i-0.5)*diag%dlambda*0.1d0 &
             +diag%lambdamin*0.1d0
-    enddo 
+    enddo
     !! convert [Ph/(s*wavel_bin*cm^2*all_directions)] to [Ph/(s*nm*sr*m^2)]!
     result%spectra(:,:,:,afida_type)=result%spectra(:,:,:,afida_type) &
          /(0.1d0*diag%dlambda)/(4.d0*pi)*1.d4
     result%spectra(:,:,:,pfida_type)=result%spectra(:,:,:,pfida_type) &
          /(0.1d0*diag%dlambda)/(4.d0*pi)*1.d4
     !! write to file
-    filename=trim(adjustl(result_dir))//"/fida_spectra.bin"  
+    filename=trim(adjustl(result_dir))//"/fida_spectra.bin"
     open (66, file =filename,access='stream')
     write(66)inputs%shot_number
     write(66)real( inputs%time,float)
-    write(66)diag%nchan 
+    write(66)diag%nchan
     write(66)diag%nlambda
     !--- wavelength array: -----
     write(66)real(lambda_arr(:),float)
@@ -878,7 +878,7 @@ contains
     write(66)real(result%spectra(:,:,:,afida_type),float)
     write(66)real(result%spectra(:,:,:,pfida_type),float)
     close (66)
-    !! result arrays 
+    !! result arrays
     deallocate(lambda_arr)
     !print*, 'FIDA spectra written to ',filename
   end subroutine write_fida_spectra
@@ -888,8 +888,8 @@ contains
     real(float)     :: fdum
     real(float),dimension(:,:,:,:),allocatable   :: fdum_arr
     allocate(fdum_arr(grid%nx,grid%ny,grid%nz,nlevs))
-    print*,'---- load neutrals  ----' 
-    filename=trim(adjustl(result_dir))//"/neutrals.bin" 
+    print*,'---- load neutrals  ----'
+    filename=trim(adjustl(result_dir))//"/neutrals.bin"
     open (66, file =filename,access='stream')
     read(66)fdum
     read(66)fdum
@@ -906,8 +906,8 @@ contains
    end subroutine read_neutrals
 
 
- 
-  
+
+
   !*****************************************************************************
   !------------random number generator-----------------------------------------
   !*****************************************************************************
@@ -915,7 +915,7 @@ contains
     !!uniform random number generator from NUMERICAL RECEPIES
     real(double)           :: ran
     !$OMP CRITICAL(random)
-    ran_ix=ieor(ran_ix,ishft(ran_ix,13)) !Marsaglia shift sequence 
+    ran_ix=ieor(ran_ix,ishft(ran_ix,13)) !Marsaglia shift sequence
     ran_ix=ieor(ran_ix,ishft(ran_ix,-17))
     ran_ix=ieor(ran_ix,ishft(ran_ix,5))
     ran_k=ran_iy/ran_IQ !Park-Miller sequence by Schrage’s method,
@@ -923,16 +923,16 @@ contains
     if(ran_iy.lt.0) ran_iy=ran_iy+ran_IM
     ran=ran_am*ior(iand(ran_IM,ieor(ran_ix,ran_iy)),1) !Combine the generators
     !$OMP END CRITICAL(random)
-  end function ran  
+  end function ran
   subroutine randn(randomn)
     !!Box Mueller Method to calculate normal distribution
     real(double),dimension(:),intent(inout):: randomn
-    integer                                :: nran, i 
-    real(double)                           :: x1,x2,w  
+    integer                                :: nran, i
+    real(double)                           :: x1,x2,w
     randomn=0.d0 ;  nran=size(randomn) ; i=1
     do while (i.le.nran)
        w=1.d0
-       do while (w.ge.1.d0) 
+       do while (w.ge.1.d0)
           x1=2.d0*ran()-1.d0
           x2=2.d0*ran()-1.d0
           w=x1*x1+x2*x2
@@ -944,16 +944,16 @@ contains
        randomn(i)=x2*w
        i=i+1
     enddo
-  end subroutine randn 
+  end subroutine randn
   subroutine randu(randomu)
     real(double), dimension(:), intent(inout):: randomu
     integer                                  :: i
     randomu=0.d0
-    do i=1,size(randomu) 
+    do i=1,size(randomu)
        randomu(i)=ran()
     enddo
-  end subroutine randu  
-  
+  end subroutine randu
+
 
   subroutine rho_interp(pos,rho)
     real(double),dimension(3), intent(in)  :: pos
@@ -993,8 +993,8 @@ contains
     real(double),dimension(3) ,intent(out), optional::a_norm,c_norm,brzt_out
     integer(long):: ir,iz
     real(double):: r,z,r0,z0,phi
-    real(double),dimension(3)  ::c00,c10,c01,c11,c0,c1 
-    real(double),dimension(3)  ::Brzt , Bxyz  
+    real(double),dimension(3)  ::c00,c10,c01,c11,c0,c1
+    real(double),dimension(3)  ::Brzt , Bxyz
     b_abs=0.d0
     r=sqrt(pos(1)**2+pos(2)**2)
     z=pos(3)
@@ -1013,12 +1013,12 @@ contains
     c1  = c01 + (c11 - c01) * (r - r0) /grid%dr
     Brzt=  c0  + (c1  - c0) * (z - z0) /grid%dz
     if(present(brzt_out))brzt_out=brzt
- 
+
 
     !! convert to xyz coordinates
     call get_phi(pos,phi)
     bxyz(1) =- cos(pi*0.5d0-phi)*brzt(3) + cos(phi)*brzt(1)
-    bxyz(2) =  sin(pi*0.5d0-phi)*brzt(3) + sin(phi)*Brzt(1) 
+    bxyz(2) =  sin(pi*0.5d0-phi)*brzt(3) + sin(phi)*Brzt(1)
     bxyz(3) =  brzt(2)
 
     b_abs =sqrt(dot_product(bxyz,bxyz))
@@ -1028,7 +1028,7 @@ contains
        if (abs(b_norm(3)).eq.1) then
           a_norm=(/1.d0,0.d0,0.d0/)
           c_norm=(/0.d0,1.d0,0.d0/)
-       else 
+       else
           if (b_norm(3).eq.0.) then
              a_norm=(/0.d0,0.d0,1.d0/)
              c_norm=(/b_norm(2),-b_norm(1), 0.d0/) &
@@ -1054,7 +1054,7 @@ contains
     integer(long),dimension(3) :: ac
     real(double) :: rho,c0,c1,c2,arg,v
     call rho_interp(pos,rho)
-    irho=floor(rho/prof%drho)+1  
+    irho=floor(rho/prof%drho)+1
     if(irho.gt.prof%nrho-1)irho=prof%nrho-1
     if(irho.lt.1)irho=1
     c2=(rho - prof%drho*(irho-1)) / prof%drho
@@ -1070,9 +1070,9 @@ contains
     !! Vtor:
        c0=prof%vtor(irho)
        c1=prof%vtor(irho+1)
-       vtor  = c0 +(c1 - c0) * c2 
+       vtor  = c0 +(c1 - c0) * c2
        vtor  = vtor * sqrt(pos(1)**2+pos(2)**2) !! conversion from rad/s to cm/s
-       if(present(te))then 
+       if(present(te))then
           !! Te:
           c0=prof%te(irho)
           c1=prof%te(irho+1)
@@ -1134,7 +1134,7 @@ contains
     denf=  c0  + (c1  - c0) * (z - z0) /fbm%dz
   end subroutine denf_interp
 
-  subroutine fbm_interp(pos,fbm_out) 
+  subroutine fbm_interp(pos,fbm_out)
     !! bilinear interpolation of the effective rate coefficient tables !!
     real(double), dimension(3),   intent(in) :: pos
     real(double), dimension(fbm%nenergy,fbm%npitch),intent(out) :: fbm_out
@@ -1161,7 +1161,7 @@ contains
     fbm_out=fbm_out/maxval(fbm_out)
   end subroutine fbm_interp
 
-  
+
   subroutine get_ac(pos,ac)
     !! determine the actual cell at which a particle is located
     real(double),dimension(3), intent(in) :: pos
@@ -1188,10 +1188,10 @@ contains
     real(double)                :: vrel          !! relative velocity
     integer                     :: ebi      !! indizes
     real(double), dimension(nlevs,nlevs) :: c0, c1
-    !Eeff 
+    !Eeff
     vrel=sqrt(dot_product(vi-vn,vi-vn))
     eb=v_to_E*vrel**2  ! [kev/amu]
-    ebi= floor(eb/tables%d_eb_neut)+1   
+    ebi= floor(eb/tables%d_eb_neut)+1
     if(ebi.ge.tables%nr_eb_neut) stop 'EB out of range of neuttable!'
     eb0=(ebi-1)*tables%d_eb_neut
     c0=tables%neut(:,:,ebi)
@@ -1201,7 +1201,7 @@ contains
     rates=matmul(neut(:,:),denn(:))*vrel
   end subroutine neut_rate
 
-         
+
   subroutine neut_rate_beam_therm(denn,vi,pos,rates)
     !! GET neutralization rate for beam-therm reactions
     real(double),  dimension(nlevs),intent(in):: denn !!density of neutrals cm-3
@@ -1210,7 +1210,7 @@ contains
     real(double), dimension(nlevs),intent(out):: rates!! rates
     real(double)                :: vtor           !! toroidal rotation
     real(double), dimension(3)  :: vrot           !! Rotation velocity of plasma
-    real(double)                :: vnet_square    !! netto velocity of neutrals 
+    real(double)                :: vnet_square    !! netto velocity of neutrals
     real(double)                :: ti             !! Ion temperature
     real(double)                :: denp           !! P density
     real(double)                :: eb             !! Energy of the fast neutral
@@ -1218,7 +1218,7 @@ contains
     real(double), dimension(3)  :: vnhalo
     integer                     :: in
     real(double), dimension(nlevs) :: rates2
-    real(double),dimension(nlevs+1,nlevs) :: eff_cross_section  ! output 
+    real(double),dimension(nlevs+1,nlevs) :: eff_cross_section  ! output
     rates=0.d0
     call prof_interp(pos,denp,ti,vtor)
     call calc_vrot(pos,vtor,vrot)
@@ -1226,7 +1226,7 @@ contains
     vnet_square=dot_product(vi,vi)          ![cm/s]
     eb=v_to_E*inputs%ab*vnet_square ![kev]
     !! DEUTERIUM (Impact excitation/ionization,charge exchange)
-    ebi= floor(eb/tables%d_eb_cx)+1  
+    ebi= floor(eb/tables%d_eb_cx)+1
     tii= floor(ti/tables%d_ti_cx)+1
     if((tii.ge.tables%nr_ti_cx).or.(ebi.ge.tables%nr_eb_cx))then
        !print*, 'Eb or Ti out of range of cxtable!'
@@ -1243,7 +1243,7 @@ contains
   end subroutine neut_rate_beam_therm
 
 
-        
+
 
   !****************************************************************************
   !----------------mc_fastion------------------------------------------------
@@ -1252,9 +1252,9 @@ contains
     !!IN: ac,   OUT: vi
     !!mcbeam computes monte carlo velocity of fast ions from cell%fbm
     real(double), dimension(3), intent(in) :: pos
-    real(double), intent(in)               :: nlaunch  
-    real(double),dimension(:,:),intent(out):: vi_arr 
-    real(double), intent(out)              :: nlaunch2  
+    real(double), intent(in)               :: nlaunch
+    real(double),dimension(:,:),intent(out):: vi_arr
+    real(double), intent(out)              :: nlaunch2
 
     real(double), dimension(3)             :: a,b,c ! vectors relative to b
     real(double), dimension(fbm%nenergy,fbm%npitch) :: fbm2
@@ -1273,7 +1273,7 @@ contains
        rejection_loop: do ii=1,10000
           call randu(randomu3)
           eb   = fbm%emin + fbm%eran * randomu3(1)
-          ptch = fbm%pmin + fbm%pran * randomu3(2) 
+          ptch = fbm%pmin + fbm%pran * randomu3(2)
           !! take point in FBM distribution closest to eb, ptch.
           ienergy=floor((eb-fbm%emin)  /fbm%dE)   +1
           ipitch =floor((ptch-fbm%pmin)/fbm%dP)+1
@@ -1285,7 +1285,7 @@ contains
              nlaunch2=nlaunch2+1
              vi_arr(int(nlaunch2),:)=vabs*(sinus*cos(phi)*a &
                   + ptch*b*inputs%btipsign &
-                  + sinus*sin(phi)*c) 
+                  + sinus*sin(phi)*c)
              exit rejection_loop
           endif
        enddo rejection_loop
@@ -1300,9 +1300,9 @@ contains
     !!mcbeam computes monte carlo velocity of fast ions from cell%fbm
     real(double), dimension(3), intent(in) :: pos
     integer(long), dimension(3),intent(in) :: ac
-    real(double), intent(in)               :: nlaunch  
-    real(double),dimension(:,:),intent(out):: vi_arr 
-    real(double), intent(out)              :: nlaunch2  
+    real(double), intent(in)               :: nlaunch
+    real(double),dimension(:,:),intent(out):: vi_arr
+    real(double), intent(out)              :: nlaunch2
 
     real(double)                           :: b_abs
     real(double), dimension(3)             :: a,b,c ! vectors relative to b
@@ -1342,13 +1342,13 @@ contains
              phi           = (phimax-phimin)*randomu3(3)+phimin
              sinus         = sqrt(1.d0-ptch**2)
              vi_arr(int(nlaunch2),:) = vabs * (sinus*cos(phi)*a + ptch*b*inputs%btipsign &
-               + sinus*sin(phi)*c) 
+               + sinus*sin(phi)*c)
           enddo
        enddo
     enddo
   end subroutine mc_fastion2
 
- 
+
   !****************************************************************************
   !--------------------mc_halo------------------------------------------------
   !****************************************************************************
@@ -1357,7 +1357,7 @@ contains
     real(double),dimension(3),intent(out) :: vhalo !! velocity [cm/s]
     real(double)              :: r,ti,denp,vtor
     real(double),dimension(3) :: vrot,randomn
-    call randn(randomn)  
+    call randn(randomn)
     r=sqrt(pos(1)**2+pos(2)**2)
     call prof_interp(pos,denp,ti,vtor)
     call calc_vrot(pos,vtor,vrot)
@@ -1377,8 +1377,8 @@ contains
     real(double), dimension(3), intent(in) :: uvw_vec !! vector in uvw coords
     integer             , intent(in)       :: updown  !! source has two plates
     real(double), dimension(3), intent(out):: xyz_vec !! vector in xyz coords
-    real(double), dimension(3)             :: uvz_vec   
-    !! rotate uvw vector in vertical dirction 
+    real(double), dimension(3)             :: uvz_vec
+    !! rotate uvw vector in vertical dirction
     if(updown.lt.0) uvz_vec(:)=matmul(nbi%Arot(:,:),uvw_vec(:))
     if(updown.ge.0) uvz_vec(:)=matmul(nbi%Brot(:,:),uvw_vec(:))
     !! rotate uvz_vec by phi_box onto xyz_coordinates
@@ -1403,7 +1403,7 @@ contains
     uvw_pos(1) =  0.d0
     uvw_pos(2) =  nbi%dv * 2.d0*(randomu(1)-0.5d0)
     uvw_pos(3) =  nbi%dw * 2.d0*(randomu(2)-0.5d0)
-    if(uvw_pos(3).gt.0)then 
+    if(uvw_pos(3).gt.0)then
        updown=1
     else
        updown=-1
@@ -1425,7 +1425,7 @@ contains
           xyz_pos(:) = xyz_pos(:) + grid%dl * vnbi(:)
           !! check if position is inside the grid
           if ( xyz_pos(1).gt.grid%xx(1) .and. &
-               xyz_pos(1).lt.grid%xx(grid%nx)+grid%dx.and. & 
+               xyz_pos(1).lt.grid%xx(grid%nx)+grid%dx.and. &
                xyz_pos(2).gt.grid%yy(1) .and. &
                xyz_pos(2).lt.grid%yy(grid%ny)+grid%dy.and. &
                xyz_pos(3).gt.grid%zz(1) .and. &
@@ -1450,7 +1450,7 @@ contains
        print*, nbi%vinj
        print*, sqrt(real(efrac))
     endif
-  end subroutine mc_nbi 
+  end subroutine mc_nbi
 
 
   !****************************************************************************
@@ -1466,10 +1466,10 @@ contains
     real(double)   , dimension(3)    :: vxB      ! crossproduct
     real(double)   , dimension(3)    :: r_gyro! gyro-radius
     real(double)                     :: one_over_omega,b_abs! For gyro-radius
-    real(double)   , dimension(3)    :: randomu  
-    call randu(randomu)  
+    real(double)   , dimension(3)    :: randomu
+    call randu(randomu)
     ipos(1)=grid%xx(ac(1))+ grid%dx*randomu(1)
-    ipos(2)=grid%yy(ac(2))+ grid%dy*randomu(2) 
+    ipos(2)=grid%yy(ac(2))+ grid%dy*randomu(2)
     ipos(3)=grid%zz(ac(3))+ grid%dz*randomu(3)
     call bfield_interp(ipos,b_abs,b_norm)
     if(b_abs.gt.0)then
@@ -1478,23 +1478,23 @@ contains
        vxB(2)= (vi(3) * b_norm(1) - vi(1) * b_norm(3))
        vxB(3)= (vi(1) * b_norm(2) - vi(2) * b_norm(1))
        r_gyro(:)=vxB(:)*one_over_omega
-       ipos(:)=ipos(:)-r_gyro(:) !! '-'because v x B is towards the gyrocenter 
+       ipos(:)=ipos(:)-r_gyro(:) !! '-'because v x B is towards the gyrocenter
     endif
   end subroutine mc_start
 
   !****************************************************************************
   !----------------------------- colrad  ------------------------------
   !****************************************************************************
-  ! first subroutines for eigenvalue decomposition 
+  ! first subroutines for eigenvalue decomposition
    subroutine RSWAP(a,b)
     real(double) :: a,b, t
     t=a; a=b; b=t
   end subroutine RSWAP
-  subroutine balance(n,     &  !size of matrix         
+  subroutine balance(n,     &  !size of matrix
        mat,   &  !input matrix
        scal,  &  !Scaling data
        low,   &  !first relevant row index
-       high )   !last relevant row index                 
+       high )   !last relevant row index
     integer, intent(in)  :: n
     real(double)         :: mat(0:n,0:n),scal(0:n)
     integer, intent(out) :: high, low
@@ -1538,10 +1538,10 @@ contains
           if (r == ZERO) then
              scal(k) = j
              if (j.ne.k) then
-                do i = 0, k 
+                do i = 0, k
                    call RSWAP(mat(i,j), mat(i,k))
                 enddo
-                do i = m, n-1 
+                do i = m, n-1
                    call RSWAP(mat(j,i), mat(k,i))
                 enddo
              endif
@@ -1561,10 +1561,10 @@ contains
           if (c == ZERO) then
              scal(m) = j
              if (j.ne.m) then
-                do i = 0, k 
+                do i = 0, k
                    call RSWAP(mat(i,j), mat(i,m))
                 enddo
-                do i = m, n-1 
+                do i = m, n-1
                    call RSWAP(mat(j,i), mat(m,i))
                 enddo
              endif
@@ -1575,7 +1575,7 @@ contains
     enddo !while iter=1
     low = m
     high = k
-    do i = m, k 
+    do i = m, k
        scal(i) = ONE
     enddo
     iter=1
@@ -1605,10 +1605,10 @@ contains
              g = ONE / f
              scal(i) = scal(i) * f
              iter = 1
-             do j = m, n-1 
+             do j = m, n-1
                 mat(i,j) = mat(i,j) * g
              enddo
-             do j = 0, k  
+             do j = 0, k
                 mat(j,i) = mat(j,i) * f
              enddo
           endif
@@ -1645,7 +1645,7 @@ contains
     !*====================================================================*
     do i = low, high
        s = scal(i)
-       do j = 0, n-1  
+       do j = 0, n-1
 	  eivec(i,j) = eivec(i,j) * s
        enddo
     enddo
@@ -1704,10 +1704,10 @@ contains
        enddo
        perm(m) = i
        if (i.ne.m) then
-          do j = m - 1, n-1 
+          do j = m - 1, n-1
              call RSWAP(mat(i,j), mat(m,j))
           enddo
-          do j = 0, high 
+          do j = 0, high
              call RSWAP(mat(j,i), mat(j,m))
           enddo
        endif
@@ -1717,10 +1717,10 @@ contains
              if (y.ne.ZERO) then
                 y = y / x
                 mat(i,m-1) = y
-                do j = m, n-1 
+                do j = m, n-1
                    mat(i,j) = mat(i,j) - y * mat(m,j)
                 enddo
-                do j = 0, high 
+                do j = 0, high
                    mat(j,m) = mat(j,m) + y * mat(j,i)
                 enddo
              endif
@@ -1755,14 +1755,14 @@ contains
     !*               Hessenberg matrix                                    *
     !*====================================================================*
     do i = 0, n-1
-       do k = 0, n-1 
+       do k = 0, n-1
 	  h(i,k) = ZERO
        enddo
        h(i,i) = ONE
     enddo
     do i = high - 1, low+1, -1
        j = perm(i)
-       do k = i + 1, high 
+       do k = i + 1, high
 	  h(k,i) = mat(k,i-1)
        enddo
        if (i.ne.j) then
@@ -1811,7 +1811,7 @@ contains
     endif
     rc = 0
   end subroutine Comdiv !Comdiv
-  function comabs(ar,ai)          !Real part ,Imaginary part ................. 
+  function comabs(ar,ai)          !Real part ,Imaginary part .................
     real(double) :: ar,ai
     real(double) :: comabs
     !*====================================================================*
@@ -1840,7 +1840,7 @@ contains
        high,  & !last nonzero row ..........
        h,     & !upper Hessenberg matrix ...
        wr,    & !Real parts of evalues .....
-       wi,    & !Imaginary parts of evalues 
+       wi,    & !Imaginary parts of evalues
        eivec, & !Eigenvectors ..............
        rc  )   !return code ...............
     integer,intent(in)         :: n
@@ -1889,7 +1889,7 @@ contains
           do i = na, 0, -1
              w = h(i,i) - p
              r = h(i,en)
-             do j = m, na 
+             do j = m, na
                 r = r + h(i,j) * h(j,en)
              enddo
              if (wi(i) < ZERO) then
@@ -1898,12 +1898,12 @@ contains
              else
                 m = i
                 if (wi(i) == ZERO) then
-                   if (w.ne.ZERO) then 
-                      temp = w 
-                   else 
+                   if (w.ne.ZERO) then
+                      temp = w
+                   else
                       temp=XMACH_EPS * norm
                    endif
-                   h(i,en) = -r/temp            
+                   h(i,en) = -r/temp
                 else
                    !Solve the linear system:
                    !| w   x |  | h[i][en]   |   | -r |
@@ -1914,9 +1914,9 @@ contains
                    q = (wr(i) - p)**2 + wi(i)**2
                    h(i,en) = (x * s - z * r) / q
                    t = h(i,en)
-                   if (DABS(x) > DABS(z)) then 
-                      temp = (-r -w * t) / x 
-                   else 
+                   if (DABS(x) > DABS(z)) then
+                      temp = (-r -w * t) / x
+                   else
                       temp = (-s -y * t) / z
                    endif
                    h(i+1,en) = temp
@@ -1962,7 +1962,7 @@ contains
                       vr = XMACH_EPS * norm * (DABS(w) + DABS(q)  &
                            + DABS(x) + DABS(y) + DABS(z))
                    endif
-                   
+
                    call Comdiv (x*r-z*ra+q*sa,x*s-z*sa-q*ra &
                         ,vr,vi,h(i,na),h(i,en),code)
                    if (DABS(x) > DABS(z) + DABS(q)) then
@@ -1987,8 +1987,8 @@ contains
     j = n-1
     do while (j>=low)
        if(j<=high)then
-	  m =j 
-       else 
+	  m =j
+       else
           j = high
        endif
        if (wi(j) < ZERO) then
@@ -2025,7 +2025,7 @@ contains
        wi,   &  !Imaginary parts of evalues ..
        eivec,&  !Matrix of eigenvectors ......
        cnt,  &  !Iteration counter ...........
-       rc   )    !return code .................              
+       rc   )    !return code .................
     integer,intent(in)          :: n
     integer,intent(in)          :: high, low
     real(double) ,intent(out)   :: h(0:n,0:n)
@@ -2071,7 +2071,7 @@ contains
     !*               For a complex conjugate eigenvalue pair the second   *
     !*               entry is negative.                                   *
     !**********************************************************************
-    p=ZERO; q=ZERO; r=ZERO 
+    p=ZERO; q=ZERO; r=ZERO
     do i = 0, n-1
        if (i < low.or.i > high) then
           wr(i) = h(i,i)
@@ -2085,7 +2085,7 @@ contains
        iter = 0
        na = en - 1
        do while(1<2)
-          ll=999                          
+          ll=999
           do l = en, low+1, -1                      !search for small
              !subdiagonal element
              if(DABS(h(l,l-1))<=XMACH_EPS*(DABS(h(l-1,l-1))+DABS(h(l,l))))then
@@ -2093,9 +2093,9 @@ contains
                 goto 10    !exit l loop
              endif
           enddo
-10        if(ll.ne.999)then 
-             l=ll 
-	  else 
+10        if(ll.ne.999)then
+             l=ll
+	  else
              l=0          !restore l
           endif
           x = h(en,en)
@@ -2119,9 +2119,9 @@ contains
              cnt(en) = -iter
              cnt(na) = iter
              if (q >= ZERO) then                     !real eigenvalues
-                if (p<ZERO) then 
-                   z=p-z 
-                else 
+                if (p<ZERO) then
+                   z=p-z
+                else
                    z=p+z
                 endif
                 wr(na) = x + z
@@ -2165,7 +2165,7 @@ contains
           endif
           if (iter.ne.0.and.MOD(iter,10) == 0) then
              t = t + x
-             do i = low, en 
+             do i = low, en
                 h(i,i) = h(i,i) - x
              enddo
              s = DABS(h(en,na)) + DABS(h(na,en-2))
@@ -2190,19 +2190,19 @@ contains
                 goto 12                !exit m loop
              endif
           enddo
-12        do i = m + 2, en 
+12        do i = m + 2, en
              h(i,i-2) = ZERO
           enddo
-          do i = m + 3, en 
+          do i = m + 3, en
              h(i,i-3) = ZERO
           enddo
           do k = m, na
              if(k.ne.m)then!double QR step, for rows l to en and columns m to en
                 p = h(k,k-1)
                 q = h(k+1,k-1)
-                if (k.ne.na) then 
-                   r = h(k+2,k-1) 
-                else 
+                if (k.ne.na) then
+                   r = h(k+2,k-1)
+                else
                    r = ZERO
                 endif
                 x = DABS(p) + DABS(q) + DABS(r)
@@ -2233,9 +2233,9 @@ contains
                 h(k+1,j) = h(k+1,j) - p * y
                 h(k,j)   = h(k,j) - p * x
              enddo
-             if (k+3 < en) then 
-                j=k+3 
-             else 
+             if (k+3 < en) then
+                j=k+3
+             else
                 j=en
              endif
              do i = 0, j                            !modify columns
@@ -2264,12 +2264,12 @@ contains
     !transform evectors back
     call hqrvec (n, low, high, h, wr, wi, eivec,rc)
   end subroutine hqr2
-  
-  subroutine eigen (matrix, eigvec, eigval)    
+
+  subroutine eigen (matrix, eigvec, eigval)
     real(double) ,intent(in),dimension(nlevs,nlevs)  :: matrix
     real(double) ,intent(out),dimension(nlevs,nlevs) :: eigvec
-    real(double) ,intent(out),dimension(nlevs)       :: eigval   
-    real(double)     :: mat(0:nlevs,0:nlevs)  
+    real(double) ,intent(out),dimension(nlevs)       :: eigval
+    real(double)     :: mat(0:nlevs,0:nlevs)
     real(double)     :: eivec(0:nlevs,0:nlevs)
     real(double)     :: valre(0:nlevs) !real parts of eigenvalues
     real(double)     :: valim(0:nlevs) !imaginary parts of eigenvalues
@@ -2285,7 +2285,7 @@ contains
     !**********************************************************************
     !* The subroutine eigen  determines all eigenvalues and (if desired)  *
     !* all eigenvectors of a real square  n * n  matrix via the QR method *
-    !* in the version of Martin, Parlett, Peters, Reinsch and Wilkinson.  * 
+    !* in the version of Martin, Parlett, Peters, Reinsch and Wilkinson.  *
     !*   Litterature:                                                     *
     !*   -----------                                                      *
     !*      1) Peters, Wilkinson: Eigenvectors of real and complex        *
@@ -2329,15 +2329,15 @@ contains
     cnt=0 ; d=0.d0
     mat(0:n-1,0:n-1)=matrix(1:n,1:n)
     !balance mat for nearly
-    call balance(n, mat, scale, low, high)      !equal row and column 
+    call balance(n, mat, scale, low, high)      !equal row and column
     !reduce mat to upper
     call elmhes(n, low, high, mat, perm)        !reduce mat to upper
     !Hessenberg form
     call elmtrans(n, low, high, mat, perm, eivec)
     !QR algorithm for eigenvalues and eigenvectors
-    call hqr2(n, low, high, mat, valre, valim, eivec, cnt,rc)  
+    call hqr2(n, low, high, mat, valre, valim, eivec, cnt,rc)
     !reverse balancing to determine eigenvectors
-    call balback(n, low, high, scale, eivec) 
+    call balback(n, low, high, scale, eivec)
     if (rc.ne.0) stop 'problem in eigen!'
     eigval(1:n)=valre(0:n-1)
     eigvec(1:n,1:n)=eivec(0:n-1,0:n-1)
@@ -2434,7 +2434,7 @@ contains
     real(double),                intent(in)     :: deb, dti ! eb and ti grid
     integer,                    intent(in)      :: ebi, tii    ! lower indices
     real(double),                intent(in)     :: eb, ti      ! desired values
-    real(double),dimension(nlevs+1,nlevs),intent(out) :: interp_out  ! output 
+    real(double),dimension(nlevs+1,nlevs),intent(out) :: interp_out  ! output
     real(double), dimension(nlevs+1,nlevs)      :: c00, c10, c01, c11, c0, c1
     real(double)    :: eb0, ti0
     eb0=(ebi-1)*deb
@@ -2448,12 +2448,12 @@ contains
     c1  = c01 + (c11 - c01) * (eb - eb0) / deb
     interp_out=( c0  + (c1  - c0) * (ti - ti0) / dti)
   end subroutine table_interp
-  
+
 
   subroutine colrad(pos,vn,dt,states,photons,neut_type,nlaunch,ipos)
     !colrad solves the collisional-radiative balance equations
     real(double),dimension(3),    intent(in)    :: pos
-    real(double),dimension(3),    intent(in),optional  :: ipos   !! for npa 
+    real(double),dimension(3),    intent(in),optional  :: ipos   !! for npa
     real(double) , dimension(:),  intent(in)    :: vn  !!velocitiy (cm/s)
     real(double)               ,  intent(in)    :: dt  !!time interval in cell
     integer                    ,  intent(in)    :: neut_type!!type of neutral
@@ -2471,19 +2471,19 @@ contains
 
     real(double)                :: vtor           !! toroidal rotation
     real(double), dimension(3)  :: vrot           !! Rotation velocity of plasma
-    real(double)                :: vnet_square    !! netto velocity of neutrals 
+    real(double)                :: vnet_square    !! netto velocity of neutrals
     real(double)                :: ti,te          !! Ion/electron temperature
     real(double)                :: denp,dene,deni !! P/impurity/electron density
     real(double)                :: eb             !! Energy of the fast neutral
     integer                     :: ebi, tii,tei   !! bin postions in arrays
-    !! ---- Solution of differential equation  ---- ! 
+    !! ---- Solution of differential equation  ---- !
     real(double),   dimension(nlevs,nlevs)  :: eigvec_inv
     real(double),   dimension(nlevs)        :: coef
-    real(double),   dimension(nlevs)        :: exp_eigval_dt 
-    real(double),   dimension(nlevs)        :: dens !! Density of neutrals 
+    real(double),   dimension(nlevs)        :: exp_eigval_dt
+    real(double),   dimension(nlevs)        :: dens !! Density of neutrals
     real(double)                            :: iflux !!Initial total flux
     real(double)                            :: dflux !! change of flux
-    integer                                 :: n !! counter 
+    integer                                 :: n !! counter
     real(double),   dimension(3)            :: b_norm  !! pitch of particle
     real(double)                            :: b_abs
     real(double)                            :: ptch  !! pitch of particle
@@ -2509,7 +2509,7 @@ contains
     if(dene.le.0)then
        if(neut_type.le.3)then  !! Store density for NBI simulation!
           dens(:)=states*dt/nlaunch!![neutrals/(cm^3)]!!
-          result%neut_dens(ac(1),ac(2),ac(3),:,neut_type)= & 
+          result%neut_dens(ac(1),ac(2),ac(3),:,neut_type)= &
                result%neut_dens(ac(1),ac(2),ac(3),:,neut_type)+dens(:)
        endif
        if(inputs%npa.eq.1.and.present(ipos).and.neut_type.ge.5)then
@@ -2539,42 +2539,42 @@ contains
     eb=v_to_E*inputs%ab*vnet_square ![kev]
 
     !! DEUTERIUM (Impact excitation/ionization,charge exchange)
-    ebi= floor(eb/tables%d_eb_qp)+1  
+    ebi= floor(eb/tables%d_eb_qp)+1
     if(ebi.ge.tables%nr_eb_qp)stop 'Eb out of range of qptable!'
     tii= floor(ti/tables%d_ti_qp)+1
     if(tii.ge.tables%nr_ti_qp)stop 'Ti out of range of qptable!'
     call table_interp(tables%qp(:,:,:,:),tables%d_eb_qp,tables%d_ti_qp &
          ,ebi,tii,eb,ti,qp)
-    qp=qp*denp ![1/s]  
+    qp=qp*denp ![1/s]
 
     !! IMPURITIES
-    ebi= floor(eb/tables%d_eb_qi)+1   
+    ebi= floor(eb/tables%d_eb_qi)+1
     if(ebi.ge.tables%nr_eb_qi)stop 'Eb out of range of qitable!'
     tii= floor(ti/tables%d_ti_qi)+1
     if(tii.ge.tables%nr_ti_qi)stop 'Ti out of range of qitable!'
     call table_interp(tables%qi(:,:,:,:),tables%d_eb_qi,tables%d_ti_qi &
          ,ebi,tii,eb,ti,qi)
-    qi=qi*deni ![1/s]  
+    qi=qi*deni ![1/s]
 
 
     !! ELECTRONS
-    ebi= floor(eb/tables%d_eb_qe)+1   
+    ebi= floor(eb/tables%d_eb_qe)+1
     if(ebi.ge.tables%nr_eb_qe)stop 'Eb out of range of qetable!'
     tei= floor(te/tables%d_te_qe)+1
     if(tei.ge.tables%nr_te_qe)stop 'Te out of range of qetable!'
     call table_interp(tables%qe(:,:,:,:),tables%d_eb_qe,tables%d_te_qe &
          ,ebi,tei,eb,te,qe)
-    qe=qe*dene ![1/s] 
+    qe=qe*dene ![1/s]
     !! - Write off-diagnonal elements (populating transitions) - !!
-    matrix= tables%einstein(1:nlevs,1:nlevs)  &     
+    matrix= tables%einstein(1:nlevs,1:nlevs)  &
          +              qp(1:nlevs,1:nlevs)  &
          +              qi(1:nlevs,1:nlevs)  &
          +              qe(1:nlevs,1:nlevs)
-    
- 
-    
+
+
+
     !! - Write diagonal elements (depopulating transitions) - !!
-    do n=1,nlevs 	            
+    do n=1,nlevs
        matrix(n,n)=&
             - sum(tables%einstein(:,n)) &
             - sum(qp(:,n)) &
@@ -2588,13 +2588,13 @@ contains
     states(:) = matmul(eigvec, coef * exp_eigval_dt)  ![neutrals/cm^3/s]!
     dens(:)   = matmul(eigvec,coef*(exp_eigval_dt-1.d0)/eigval)/nlaunch
     !$OMP CRITICAL(col_rad)
-    result%neut_dens(ac(1),ac(2),ac(3),:,neut_type)= & 
+    result%neut_dens(ac(1),ac(2),ac(3),:,neut_type)= &
          result%neut_dens(ac(1),ac(2),ac(3),:,neut_type)+dens(:)![neutrals/cm^3]
     result%velocity_counter(ac(1),ac(2),ac(3),neut_type)= & !!increase counter
          result%velocity_counter(ac(1),ac(2),ac(3),neut_type)+1
     counter=result%velocity_counter(ac(1),ac(2),ac(3),neut_type)
     vel_vec_red_lev=result%vel_vec_red_lev(ac(1),ac(2),ac(3),neut_type)
-    if(mod(counter,vel_vec_red_lev).eq.0)then 
+    if(mod(counter,vel_vec_red_lev).eq.0)then
        counter=counter/vel_vec_red_lev
        if(counter.gt.nvelocities)then
           !! increase reduction level in storing velocity vectors
@@ -2607,7 +2607,7 @@ contains
                   velocity_dummy
           enddo
           !! don't save this one
-       else 
+       else
           result%velocity_vectors(ac(1),ac(2),ac(3),neut_type,counter,:)=vn
        endif
     endif
@@ -2628,7 +2628,7 @@ contains
     !! -------------------- determine photon flux ------------------------ !!
     photons=dens(3)*tables%einstein(2,3) !! - [Ph/(s*cm^3)] - !!
   end subroutine colrad
-  
+
   !***************************************************************************
   !-----------spectrum--------------------------------------------------------
   !***************************************************************************
@@ -2658,9 +2658,9 @@ contains
     loop_over_channels: do ichan=1,diag%nchan
        if(diag%los_wght(ac(1),ac(2),ac(3),ichan).le.0.)cycle loop_over_channels
        !! vector directing towards the optical head
-       vp(1)=pos(1)-diag%xyzhead(ichan,1) 
-       vp(2)=pos(2)-diag%xyzhead(ichan,2) 
-       vp(3)=pos(3)-diag%xyzhead(ichan,3) 
+       vp(1)=pos(1)-diag%xyzhead(ichan,1)
+       vp(2)=pos(2)-diag%xyzhead(ichan,2)
+       vp(3)=pos(3)-diag%xyzhead(ichan,3)
        vp=vp/sqrt(dot_product(vp,vp))
 
        ! Calculate Doppler shift
@@ -2677,9 +2677,9 @@ contains
        !Stark Splitting
        wavel =  lambda_Doppler + E * stark_wavel ![A]
        !Intensities of stark components
-       if (E .eq. 0.d0) then 
-          cos_los_Efield = 0.d0 
-       else 
+       if (E .eq. 0.d0) then
+          cos_los_Efield = 0.d0
+       else
           cos_los_Efield = dot_product(vp,efield) / E
        endif
        intens = stark_intens*(1.d0+ stark_sign* cos_los_Efield**2.d0)
@@ -2688,20 +2688,20 @@ contains
           intens = intens * diag%sigma_pi(ichan)
        endwhere
        !! --- normalize and multiply with photon density from colrad --- !!
-       intens      = intens/sum(intens)*photons 
+       intens      = intens/sum(intens)*photons
        if(present(wavout))then
           wavout=wavel
           intout=intens
           return
        endif
        !! ---------------------- Store spectra ---------------------- !!
-       do i=1,n_stark                                                       
+       do i=1,n_stark
           bin=floor((wavel(i)-diag%lambdamin)/diag%dlambda)+1
-          if (bin.lt.1)            bin = 1                        
-          if (bin.gt.diag%nlambda) bin = diag%nlambda  
+          if (bin.lt.1)            bin = 1
+          if (bin.gt.diag%nlambda) bin = diag%nlambda
           pisi=1
           if(stark_sigma(i).eq.1)pisi=2
-          !$OMP CRITICAL(spec_trum)  
+          !$OMP CRITICAL(spec_trum)
           result%spectra(pisi,bin,ichan,neut_type)= &
                result%spectra(pisi,bin,ichan,neut_type) &
                +intens(i)*diag%los_wght(ac(1),ac(2),ac(3),ichan)
@@ -2709,13 +2709,13 @@ contains
        enddo
     enddo loop_over_channels
   end subroutine spectrum
-  
-  
+
+
   !*****************************************************************************
   !------------track------------------------------------------------------------
   !*****************************************************************************
   subroutine track(vin, posin, pos_arr,dt_arr,ntrack,icell)
-    !!track computes the path of a neutral through a the FIDAcode grid 
+    !!track computes the path of a neutral through a the FIDAcode grid
     real(double), dimension(:)  , intent(in)   :: posin  ! initial position
     real(double), dimension(:)  , intent(in)   :: vin  ! velocitiy
     integer               , intent(out)        :: ntrack! number of cells
@@ -2727,55 +2727,55 @@ contains
     real(double), dimension(3) :: dt_min !!time to cell boundary
     real(double)               :: dt     !!min time to cell boundary
     real(double), dimension(3) :: vn !!velocitiy that can be changed
-    real(double), dimension(3) :: ipos !!position of ray  
+    real(double), dimension(3) :: ipos !!position of ray
     dt_arr=0.d0 ; pos_arr=0.d0 ; ntrack=0
     vn(:)=vin(:) ;  ipos(:)=posin(:)
     !! define actual cell
     call get_ac(ipos,p)
     !! Fudge zero velocity components to avoid overflow error
-    where (vn(:).eq.0) vn(:) = 0.001   
+    where (vn(:).eq.0) vn(:) = 0.001
     !! Start tracking routine
     if(present(icell))then
        icell=0
        icell(:,1)=p(:)
     endif
-    cc=1 
+    cc=1
     !!loop along track of neutral
     tracking: do while(cc.lt.(grid%ntrack))
        l(:)=p(:)
-       where(vn(:).gt.0.d0) l(:)=p(:)+1 
-       if ( l(1).gt.grid%nx.or.& 
+       where(vn(:).gt.0.d0) l(:)=p(:)+1
+       if ( l(1).gt.grid%nx.or.&
             l(2).gt.grid%ny.or.&
-            l(3).gt.grid%nz) exit tracking  
+            l(3).gt.grid%nz) exit tracking
        !time needed to go to next cell
        dt_min(1)=(grid%xx(l(1))-ipos(1))/vn(1)
        dt_min(2)=(grid%yy(l(2))-ipos(2))/vn(2)
        dt_min(3)=(grid%zz(l(3))-ipos(3))/vn(3)
-       minpos=minloc(dt_min) 
+       minpos=minloc(dt_min)
        dt=dt_min(minpos(1))
        pos_arr(:,cc) = ipos(:) + vn(:)*dt*0.5  !! mean postion in cell
        ipos(:)     = ipos(:) + vn(:)*dt
-       if (vn(minpos(1)).gt.0.d0)  then 
+       if (vn(minpos(1)).gt.0.d0)  then
           p(minpos(1))=p(minpos(1))+1
        else
           p(minpos(1))=p(minpos(1))-1
        endif
-       if (any(p.le.0))exit tracking    
+       if (any(p.le.0))exit tracking
        dt_arr(cc)=dt
        if(present(icell))icell(:,cc+1)=p(:)
        cc=cc+1
     enddo tracking
     ntrack=cc-1
   end subroutine track
-  
 
 
-  
+
+
  !*****************************************************************************
  !------------track2-----------------------------------------------------------
  !*****************************************************************************
   subroutine track2(vin, posin, pos_arr,dt_arr,ntrack)
-    !!track computes the path of a neutral through a the FIDAcode grid 
+    !!track computes the path of a neutral through a the FIDAcode grid
     real(double), dimension(3)  , intent(in)   :: posin  ! initial position
     real(double), dimension(3)  , intent(in)   :: vin    ! velocitiy
     real(double), dimension(:,:), intent(out)  :: pos_arr! positions along track
@@ -2806,7 +2806,7 @@ contains
     if(i.eq.grid%ntrack)print*, 'grid%ntrack not large enough!'
     i=i-1
     !! the last position has a variable length that is determined by
-    !! the grid boundary. Hence, find length to the grid boundary and 
+    !! the grid boundary. Hence, find length to the grid boundary and
     !! adjust the position and time
     if(vin(1).gt.0)then
        tmin_arr(1)=(grid%xmax-pos_arr(1,i))/vin(1)
@@ -2825,16 +2825,16 @@ contains
     endif
     dt_arr(i)=minval(tmin_arr)
     ntrack=i
-    !! if there is only one position, check if this position is inside the 
+    !! if there is only one position, check if this position is inside the
     !! simultion grid! Otherwise, set ntrack to zero!
     if(ntrack.eq.1)then
        ntrack=0
        if((posin(1).lt.grid%xmin).or. &
             (posin(1).gt.grid%xmax))return
        if((posin(2).lt.grid%xmin).or. &
-            (posin(2).gt.grid%xmax))return  
+            (posin(2).gt.grid%xmax))return
        if((posin(3).lt.grid%xmin).or. &
-            (posin(3).gt.grid%xmax))return  
+            (posin(3).gt.grid%xmax))return
        ntrack=1
     endif
     !! Add 0.5*dl to every position!
@@ -2844,7 +2844,7 @@ contains
   end subroutine track2
 
 
-  
+
   function cross_product(a,b)
     real(double), dimension(3), intent(in)   :: a,b
     real(double), dimension(3) :: cross_product
@@ -2852,7 +2852,7 @@ contains
     cross_product(2)=-(a(1)*b(3)-a(3)*b(1))
     cross_product(3)=  a(1)*b(2)-a(2)*b(1)
   end function cross_product
-  
+
   subroutine orbit(ipos,iv,mass,charge,npos,pos_arr,dt)
     real(double), dimension(3)  , intent(in)   :: ipos ! initial position
     real(double), dimension(3)  , intent(in)   :: iv  ! velocitiy
@@ -2871,10 +2871,10 @@ contains
     real(double),   dimension(3,3)  :: B
     real(double),   dimension(3)    :: eigval
     real(double),   dimension(3,3)  :: eigvec_inv
-    
+
     real(double),   dimension(3)        :: coef
-    real(double),   dimension(3)        :: exp_eigval_dt 
-    
+    real(double),   dimension(3)        :: exp_eigval_dt
+
 
     dt = grid%dl/sqrt(dot_product(iv,iv))
     nsub=grid%dl/0.01
@@ -2894,7 +2894,7 @@ contains
        B(1,:)=(/      0.d0, b_norm(3),-b_norm(2)/)
        B(2,:)=(/-b_norm(3),      0.d0, b_norm(1)/)
        B(3,:)=(/ b_norm(2),-b_norm(1),      0.d0/)
-   
+
        if(b_abs.le.0)exit
        factor=charge/mass*b_abs
        !! a=charge* VxB/mass
@@ -2929,7 +2929,7 @@ contains
     integer                       , intent(in)    :: nr_markers
     real(double), dimension(:,:,:), intent(in)    :: papprox
     real(double)                  , intent(in)    :: papprox_tot
-    real(double), dimension(:,:,:), intent(out)   :: nlaunch  
+    real(double), dimension(:,:,:), intent(out)   :: nlaunch
     integer  :: i
     do i=1,1000
        nlaunch(:,:,:)=papprox(:,:,:)/papprox_tot*nr_markers*(1.+i*0.01)
@@ -2939,7 +2939,7 @@ contains
   end subroutine get_nlaunch
 
 
-  
+
 
   !*****************************************************************************
   !-----------ndmc (NBI)--------------------------------------------------------
@@ -2948,7 +2948,7 @@ contains
     integer                                :: indmc     !! counter for markers
     integer                                :: type      !! full half third En
     real(double)                           :: nlaunch   !! nr. of markers
-    real(double)                           :: nneutrals !! # NBI particles 
+    real(double)                           :: nneutrals !! # NBI particles
     real(double), dimension(3)             :: vnbi      !! velocities(full..)
     real(double), dimension(3)             :: ipos      !! initial position
     !!Tracking routine output
@@ -2978,7 +2978,7 @@ contains
           call track2(vnbi,ipos, pos_arr, dt_arr, ntrack)
           !! --------- solve collisional radiative model along track ---- !!
           states=0.d0
-          states(1)=nneutrals*nbi%species_mix(type)/grid%dv 
+          states(1)=nneutrals*nbi%species_mix(type)/grid%dv
           loop_along_track: do jj=1,ntrack
              call colrad(pos_arr(:,jj),vnbi,dt_arr(jj),states &
                   ,photons,type,nlaunch)
@@ -2996,7 +2996,7 @@ contains
        if(sum(result%neut_dens).eq.0)stop 'Beam does not intersect the grid!'
     endif
   end subroutine ndmc
-  
+
 
 
   !*****************************************************************************
@@ -3004,15 +3004,15 @@ contains
   !*****************************************************************************
   subroutine dcx
     integer                                :: i,j,k   !! indices of cells
-    real(double), dimension(3)             :: randomu   
+    real(double), dimension(3)             :: randomu
     integer                                :: idcx    !! counter
     real(double), dimension(3)             :: ipos      !! start position
-    real(double), dimension(3)             :: vhalo   !! velocity bulk plasma 
+    real(double), dimension(3)             :: vhalo   !! velocity bulk plasma
     real(double)                           :: rho
     !! Determination of the CX probability
     real(double), dimension(nlevs)         :: denn    !!  neutral dens (n=1-4)
     real(double) :: denf,denp
-    real(double), dimension(nlevs)         :: prob    !!  Prob. for CX 
+    real(double), dimension(nlevs)         :: prob    !!  Prob. for CX
     integer                                :: counter !!of velocity vectors
     integer                                :: vel_vec_red_lev !! reduction level
     integer                                :: type    !! type of NBI neutral
@@ -3029,13 +3029,13 @@ contains
     real(double), dimension(grid%nx,grid%ny,grid%nz)::papprox !!approx.density
     real(double)                           :: papprox_tot
     real(double), dimension(grid%nx,grid%ny,grid%nz)::nlaunch
-   
+
     papprox=0.d0
     papprox_tot=0.d0
     !! ------------- calculate papprox needed for guess of nlaunch --------!!
-    do k=1,grid%Nz 
-       do j=1,grid%Ny 
-          do i=1,grid%Nx 
+    do k=1,grid%Nz
+       do j=1,grid%Ny
+          do i=1,grid%Nx
              ipos=(/grid%xxc(i),grid%yyc(j),grid%zzc(k)/)
              call prof_interp(ipos,denp)
              call denf_interp(ipos,denf)
@@ -3045,7 +3045,7 @@ contains
                      +              sum(result%neut_dens(i,j,k,:,nbit_type))) &
                   *(denp-denf)
                 call rho_interp(ipos,rho)
-                if(rho.lt.1.1) papprox_tot=papprox_tot+papprox(i,j,k)  
+                if(rho.lt.1.1) papprox_tot=papprox_tot+papprox(i,j,k)
              endif
           enddo
        enddo
@@ -3062,17 +3062,17 @@ contains
              !! ------------ loop over the markers ---------------------- !!
              loop_over_dcx: do idcx=1,int(nlaunch(i,j,k))
                 !! ---------------- calculate ri,vi and track -------------!!
-                call randu(randomu)  
+                call randu(randomu)
                 ipos(1)=grid%xx(i)+ grid%dx*randomu(1)
-                ipos(2)=grid%yy(j)+ grid%dy*randomu(2) 
+                ipos(2)=grid%yy(j)+ grid%dy*randomu(2)
                 ipos(3)=grid%zz(k)+ grid%dz*randomu(3)
                 call mc_halo(ipos,vhalo(:))
-                if(sum(vhalo).eq.0)cycle loop_over_dcx 
+                if(sum(vhalo).eq.0)cycle loop_over_dcx
                 call track2(vhalo,ipos, pos_arr, dt_arr, ntrack)
                 !! ---------------- calculate CX probability ------------- !!
                 prob=0.d0
                 energy_fractions: do type=1,3
-                   call randu(randomu)  
+                   call randu(randomu)
                    !! (type = 1: full energy, =2: half energy, =3: third energy
                    !! get velocity vector of NBI neutrals ------ !!
                    counter=result%velocity_counter(i,j,k,type)
@@ -3086,7 +3086,7 @@ contains
                    call neut_rate(denn,vhalo,vnbi,rates)
                    prob=prob + rates
                 enddo energy_fractions
- 
+
                 if(sum(prob).le.0.)cycle loop_over_dcx
                 !! --------- solve collisional radiative model along track-!!
                 call prof_interp(ipos,denp)
@@ -3095,7 +3095,7 @@ contains
                 loop_along_track: do jj=1,ntrack
                    call colrad(pos_arr(:,jj),vhalo(:),dt_arr(jj),states &
                         ,photons,halo_type,nlaunch(i,j,k))
-                   if(photons.le.0.d0)cycle loop_over_dcx 
+                   if(photons.le.0.d0)cycle loop_over_dcx
                    if(inputs%calc_spec.eq.1)call spectrum(vhalo(:) &
                         ,pos_arr(:,jj),photons,halo_type)
                 enddo loop_along_track
@@ -3105,14 +3105,14 @@ contains
     enddo loop_along_z
     !$OMP END PARALLEL DO
   end subroutine dcx
-  
+
   !*****************************************************************************
   !-------------------------- halo -------------------------------------------
   !*****************************************************************************
   subroutine halo
-    integer                                :: i,j,k !indices of cells 
+    integer                                :: i,j,k !indices of cells
     integer                                :: ihalo !! counter
-    real(double), dimension(3)             :: randomu   
+    real(double), dimension(3)             :: randomu
     real(double), dimension(3)             :: ipos    !! start position
     real(double), dimension(3)             :: vihalo!! velocity bulk plasma ion
     real(double)                           :: rho
@@ -3120,7 +3120,7 @@ contains
     real(double), dimension(nlevs)         :: denn    !! neutral dens (n=1-4)
     real(double)                           :: denf    !! fast-ion density
     real(double)                           :: denp    !! Proton density
-    real(double), dimension(nlevs)         :: prob    !! Prob. for CX 
+    real(double), dimension(nlevs)         :: prob    !! Prob. for CX
     integer                                :: counter !!of velocity vectors
     integer                                :: vel_vec_red_lev !! reduction level
     real(double), dimension(3)             :: vnhalo  !! v of halo neutral
@@ -3133,7 +3133,7 @@ contains
     integer                                :: jj       !! counter along track
     real(double)                           :: photons  !! photon flux
     real(double), dimension(grid%nx,grid%ny,grid%nz)::papprox,nlaunch !! approx. density
-    real(double)                           :: papprox_tot 
+    real(double)                           :: papprox_tot
     !! Halo iteration
     integer                                :: hh !! counters
     real(double)                           :: dcx_dens, halo_iteration_dens
@@ -3155,20 +3155,20 @@ contains
        !! ------------- calculate papprox needed for guess of nlaunch --------!!
        papprox=0.d0
        papprox_tot=0.d0
-       do k=1,grid%Nz 
-          do j=1,grid%Ny 
-             do i=1,grid%Nx   
+       do k=1,grid%Nz
+          do j=1,grid%Ny
+             do i=1,grid%Nx
                 ipos=(/grid%xxc(i),grid%yyc(j),grid%zzc(k)/)
                 call prof_interp(ipos,denp)
                 papprox(i,j,k)=sum(result%neut_dens(i,j,k,:,s1type))*denp
                 call rho_interp(ipos,rho)
-                if(rho.lt.1.1) papprox_tot=papprox_tot+papprox(i,j,k) 
+                if(rho.lt.1.1) papprox_tot=papprox_tot+papprox(i,j,k)
              enddo
           enddo
        enddo
        call get_nlaunch(inputs%nr_halo,papprox,papprox_tot,nlaunch)
        print*, '    # of markers: ' ,int(sum(nlaunch))
-       
+
        !$OMP PARALLEL DO private(i,j,k,ihalo,randomu,ipos,denp,denf, &
        !$OMP& vihalo,pos_arr,dt_arr,ntrack,prob,counter,vel_vec_red_lev, &
        !$OMP& denn,vnhalo,states,jj,photons)
@@ -3178,9 +3178,9 @@ contains
                 !! ------------- loop over the markers ---------------------- !!
                 loop_over_halos: do ihalo=1,int(nlaunch(i,j,k))
                    !! ---------------- calculate ri,vhalo and track ----------!!
-                   call randu(randomu)  
+                   call randu(randomu)
                    ipos(1)=grid%xx(i)+ grid%dx*randomu(1)
-                   ipos(2)=grid%yy(j)+ grid%dy*randomu(2) 
+                   ipos(2)=grid%yy(j)+ grid%dy*randomu(2)
                    ipos(3)=grid%zz(k)+ grid%dz*randomu(3)
                    call prof_interp(ipos,denp)
                    call denf_interp(ipos,denf)
@@ -3192,10 +3192,10 @@ contains
                    prob=0.d0
                    !! get density of Halo neutrals of previous generation ------ !!
                    denn(:)=result%neut_dens(i,j,k,:,s1type)
-                   !! there is no second iteration in the fast-ion simulation. 
+                   !! there is no second iteration in the fast-ion simulation.
                    !! So add something like the fi-contribution to denn
                    !! because fast-neutrals can also generate halos!
-                   if(denf/denp.lt.0.99.or.denf/denp.gt.1.01)then 
+                   if(denf/denp.lt.0.99.or.denf/denp.gt.1.01)then
                       denn(:)=denn(:)*(1.d0+denf/(denp-denf))
                    else
                       print*,'denf and denp almost the same (in halo routine)'
@@ -3215,7 +3215,7 @@ contains
                    loop_along_track: do jj=1,ntrack
                       call colrad(pos_arr(:,jj),vihalo(:),dt_arr(jj),states &
                            ,photons,s2type,nlaunch(i,j,k))
-                      if(photons.le.0.d0)cycle loop_over_halos 
+                      if(photons.le.0.d0)cycle loop_over_halos
                       if(inputs%calc_spec.eq.1) &
                            call spectrum(vihalo,pos_arr(:,jj),photons,halo_type)
                    enddo loop_along_track
@@ -3228,39 +3228,54 @@ contains
        halo_iteration_dens=sum(result%neut_dens(:,:,:,:,s2type))
        result%neut_dens(:,:,:,:,halo_type)=result%neut_dens(:,:,:,:,halo_type) &
             + result%neut_dens(:,:,:,:,s2type)
-       !! add this generations velocity vectors in halo_type 
+       !! add this generations velocity vectors in halo_type
        !! this is a bit more difficult as the vel_vec_red_level has to be taken into account
-       do k = 1, grid%Nz
+        do k = 1, grid%Nz
           do j = 1, grid%Ny
-             do i = 1, grid%Nx
-                vel_vec_red_lev=result%vel_vec_red_lev(i,j,k,halo_type)
-                ncounters_s2=int(result%velocity_counter(i,j,k,s2type)/vel_vec_red_lev)
-                do jj=1,ncounters_s2 !! add counter_s2 velocity vectors
-                   result%velocity_counter(i,j,k,halo_type)= & !! increase halo_counter
-                        result%velocity_counter(i,j,k,halo_type)+1
-                   counter=result%velocity_counter(i,j,k,halo_type)
-                   if(mod(counter,vel_vec_red_lev).eq.0)then 
-                      if(counter.gt.nvelocities)then
-                         !! increase reduction-level in storing velocity vectors
-                         vel_vec_red_lev = vel_vec_red_lev*2
-                         result%vel_vec_red_lev(i,j,k,halo_type)=vel_vec_red_lev
-                         !! move every second index to the first half of the array!
-                         do nn=1,3
+            do i = 1, grid%Nx
+              vel_vec_red_lev=result%vel_vec_red_lev(i,j,k,halo_type)
+              !! determine how many velocity vectors need to be added to the halo array
+              !! here, we have to consider the vel_vec_red_lev of the halo array!
+              ncounters_s2=int(result%velocity_counter(i,j,k,s2type)/vel_vec_red_lev)
+              do jj=1,ncounters_s2 !! add ncounter_s2 velocity vectors
+                result%velocity_counter(i,j,k,halo_type)= & !!increase halo_counter
+                result%velocity_counter(i,j,k,halo_type)+1
+                counter=result%velocity_counter(i,j,k,halo_type)
+                if(mod(counter,vel_vec_red_lev).eq.0)then
+                    counter=counter/vel_vec_red_lev
+                    if(counter.gt.nvelocities)then
+                        !! increase reduction-level in storing velocity vectors
+                        vel_vec_red_lev = vel_vec_red_lev*2
+                        result%vel_vec_red_lev(i,j,k,halo_type)=vel_vec_red_lev
+                        !! move every second index to the first half of the array!
+                        do nn=1,3
                             velocity_dummy= &
-                                 result%velocity_vectors(i,j,k,halo_type,every_second_index,nn)
+                            result%velocity_vectors(i,j,k,halo_type,every_second_index,nn)
                             result%velocity_vectors(i,j,k,halo_type,first_half_indices,nn)= &
-                                 velocity_dummy
-                         enddo
-                         !! don't save this one
-                      else 
-                         result%velocity_vectors(i,j,k,halo_type,counter,:)= &
-                              result%velocity_vectors(i,j,k,s2type,jj,:)
-                      endif
-                   endif
-                enddo
-             enddo
+                            velocity_dummy
+                        enddo
+                        !don't save this one
+                    else
+                        !! the reduction level of halo_type is not necesarily
+                        !! the same one as the level of s2type!
+                        !! Therefore, there we have to consider that there can
+                        !! be less or more velocity vectors than nvelocities!
+                        !! As a solution, we just ncounter_s2 velocity vectors
+                        !! that correspond to random positions in the s2 array.
+                        call randu(randomu)
+                        !! random * ncounters in s2type
+                        counter_s2=int(randomu(1)* &
+                            (int(result%velocity_counter(i,j,k,s2type)/ &
+                            result%vel_vec_red_lev(i,j,k,s2type))-1)+0.5)+1
+
+                        result%velocity_vectors(i,j,k,halo_type,counter,:)= &
+                        result%velocity_vectors(i,j,k,s2type,counter_s2,:)
+                    endif
+                endif
+              enddo
+            enddo
           enddo
-       enddo
+        enddo
        !! reset storage arrays
        result%neut_dens(:,:,:,:,s1type)= result%neut_dens(:,:,:,:,s2type)
        result%neut_dens(:,:,:,:,s2type)= 0.
@@ -3269,11 +3284,11 @@ contains
        result%velocity_counter(:,:,:,s2type)     = 0
        result%vel_vec_red_lev(:,:,:,s1type)      = result%vel_vec_red_lev(:,:,:,s2type)
        result%vel_vec_red_lev(:,:,:,s2type)      = 1
-       !! check if to exit the iteration 
+       !! check if to exit the iteration
        if(halo_iteration_dens/dcx_dens.gt.1)exit iterations
        inputs%nr_halo=inputs%nr_dcx*halo_iteration_dens/dcx_dens
        if(inputs%nr_halo.lt.inputs%nr_dcx*0.01)exit iterations
-    enddo iterations 
+    enddo iterations
     !! set the neutral density in s1type(fida_type) and s2type (dummy) to 0!
     result%neut_dens(:,:,:,:,s1type) = 0.d0
     result%neut_dens(:,:,:,:,s2type) = 0.d0
@@ -3285,7 +3300,7 @@ contains
   !*****************************************************************************
   !-----------FIDA simulation---------------------------------------------------
   !*****************************************************************************
-  subroutine fida      
+  subroutine fida
     integer                               :: i,j,k   !! indices  x,y,z  of cells
     integer                               :: iion
     real(double), dimension(3)            :: ipos    !! start position and index
@@ -3300,13 +3315,13 @@ contains
     real(double)                          :: ti,te          !! Ion/electron temperature
     real(double)                          :: denp,dene,deni !! P/impurity/electron densit
     real(double)                          :: denf    !! fast-ion density
-    real(double), dimension(nlevs)        :: prob    !! Prob. for CX 
+    real(double), dimension(nlevs)        :: prob    !! Prob. for CX
     !! Determine velocity vectors of neutrals
     integer                               :: counter !!of velocity vectors
     integer                               :: vel_vec_red_lev !! reduction level
-    integer                               :: type    !! type of NBI neutral 
-    real(double), dimension(3)            :: randomu   
-    real(double), dimension(3)            :: vn      !!  velocity vector of neutrals  
+    integer                               :: type    !! type of NBI neutral
+    real(double), dimension(3)            :: randomu
+    real(double), dimension(3)            :: vn      !!  velocity vector of neutrals
     real(double), dimension(nlevs)        :: rates   !! Rate coefficiants for CX
     !! Collisiional radiative model along track
     real(double), dimension(nlevs)        :: states  ! Density of n-states
@@ -3314,20 +3329,20 @@ contains
     real(double), dimension(grid%ntrack)  :: dt_arr  !! time per track step
     real(double), dimension(3,grid%ntrack):: pos_arr !! positions along track
     integer                               :: jj      !! counter along track
-    real(double)                          :: photons !! photon flux 
+    real(double)                          :: photons !! photon flux
     real(double), dimension(grid%nx,grid%ny,grid%nz)::papprox,nlaunch !! approx. density
-    real(double)                          :: nlaunch2   
+    real(double)                          :: nlaunch2
     real(double)                          :: vi_abs             !! (for NPA)
     real(double), dimension(3)            :: ray,ddet,hit_pos   !! ray towards NPA
-    real(double)                          :: papprox_tot 
-    integer                               :: inpa    
+    real(double)                          :: papprox_tot
+    integer                               :: inpa
     real(double)                          :: alpha !! angle relative to detector LOS
     integer                               :: cnt,maxcnt !! counters to show progress of simualtion
     !! ------------- calculate papprox needed for guess of nlaunch --------!!
     papprox=0.d0
     papprox_tot=0.d0
-    do k=1,grid%Nz 
-       do j=1,grid%Ny 
+    do k=1,grid%Nz
+       do j=1,grid%Ny
           do i=1,grid%Nx
              ipos=(/grid%xxc(i),grid%yyc(j),grid%zzc(k)/)
              if (inputs%npa.eq.1) then
@@ -3343,7 +3358,7 @@ contains
                   +          sum(result%neut_dens(i,j,k,:,halo_type)))  &
                   *          denf
              call rho_interp(ipos,rho)
-             if(rho.lt.1.1) papprox_tot=papprox_tot+papprox(i,j,k) 
+             if(rho.lt.1.1) papprox_tot=papprox_tot+papprox(i,j,k)
           enddo
        enddo
     enddo
@@ -3374,14 +3389,14 @@ contains
                    vi(:)=vi_arr(iion,:)
                    if(sum(vi).eq.0) cycle loop_over_fast_ions
                    !! -------- check if particle hits the NPA detector ---- !!
-                   if(inputs%npa.eq.1)then  
+                   if(inputs%npa.eq.1)then
                       vi_abs=sqrt(dot_product(vi,vi))
                       alpha=acos(dot_product(npa%los,vi(:))/(vi_abs*npa%dlos))
                       if (alpha.gt.npa%opening_angle) cycle loop_over_fast_ions
                    endif
                    call mc_start(iind(:), vi(:), ipos(:))
                    !! -------- check if track ends at the NPA detector ---- !!
-                   if(inputs%npa.eq.1)then 
+                   if(inputs%npa.eq.1)then
                       !! check if track ends at the NPA detector
                       ray=ipos-diag%xyzhead(1,:)
                       hit_pos(:)=ipos(:)+vi(:)/vi_abs*sqrt(dot_product(ray,ray))
@@ -3397,7 +3412,7 @@ contains
                    neutral_types: do type=1,4
                       !! = 1: full, =2: half, =3: one third, =4: halo
                       !! get velocity vectors of those neutrals ------ !!
-                      call randu(randomu)  
+                      call randu(randomu)
                       counter=result%velocity_counter(ac(1),ac(2),ac(3),type)
                       vel_vec_red_lev=result%vel_vec_red_lev(ac(1),ac(2),ac(3),type)
                       counter=int(counter/vel_vec_red_lev)-1
@@ -3406,7 +3421,7 @@ contains
                       !! get density of those neutrals ------ !!
                       denn(:)=result%neut_dens(ac(1),ac(2),ac(3),:,type)
                       if(type.eq.halo_type)then
-                         !! there is no Impurity ion halo calculation. Therefore,  
+                         !! there is no Impurity ion halo calculation. Therefore,
                          !! assume that there were no impurities
                          if(denp.gt.0)denn(:)=denn(:)*dene/denp
                       endif
@@ -3417,7 +3432,7 @@ contains
                    if(sum(prob).le.0.)cycle loop_over_fast_ions
                    !! --------- solve collisional radiative model along track-!!
                    states=prob*denf
-                   loop_along_track: do jj=1,ntrack     
+                   loop_along_track: do jj=1,ntrack
                       call colrad(pos_arr(:,jj),vi(:),dt_arr(jj) &
                            ,states,photons,afida_type,nlaunch2,ipos)
                       if(photons.le.0.d0)cycle loop_over_fast_ions
@@ -3436,11 +3451,11 @@ contains
           enddo loop_along_x
        enddo loop_along_y
     enddo loop_along_z
-    !$OMP END PARALLEL DO 
+    !$OMP END PARALLEL DO
   end subroutine fida
 
 
-  subroutine passive_fida      
+  subroutine passive_fida
     integer                               :: i,j,k   !! indices  x,y,z  of cells
     integer                               :: iion
     real(double), dimension(3)            :: ipos    !! start position
@@ -3452,7 +3467,7 @@ contains
     !! Determination of the CX probability
     real(double), dimension(nlevs)        :: denn    !!  neutral dens (n=1-4)
     real(double)                          :: denf    !! fast-ion density
-    real(double), dimension(nlevs)        :: prob    !! Prob. for CX 
+    real(double), dimension(nlevs)        :: prob    !! Prob. for CX
     real(double), dimension(3)            :: vnhalo  !! v of halo neutral
     integer                               :: in      !! index of neut rates
     real(double), dimension(nlevs)        :: rates   !! Rate coefficiants for CX
@@ -3462,27 +3477,27 @@ contains
     real(double), dimension(grid%ntrack)  :: dt_arr  !! time per track step
     real(double), dimension(3,grid%ntrack):: pos_arr !! positions along track
     integer                               :: jj      !! counter along track
-    real(double)                          :: photons !! photon flux 
+    real(double)                          :: photons !! photon flux
     real(double), dimension(grid%nx,grid%ny,grid%nz)::papprox,nlaunch !! approx. density
-    real(double)                          :: nlaunch2   
+    real(double)                          :: nlaunch2
     real(double)                          :: vi_abs             !! (for NPA)
     real(double), dimension(3)            :: ray,ddet,hit_pos   !! ray towards NPA
-    real(double)                          :: papprox_tot 
-    integer                               :: inpa    
+    real(double)                          :: papprox_tot
+    integer                               :: inpa
     real(double)                          :: alpha !! angle relative to detector LOS
 
 
     real(double)                          ::denp,ti,vtor,te,dene,deni,bckgrnd_dens
 
     print*, 'Passive fida simulation'
-    
+
 
     inputs%nr_fida=inputs%nr_fida/2.
     !! ------------- calculate papprox needed for guess of nlaunch --------!!
     papprox=0.d0
     papprox_tot=0.d0
-    do k=1,grid%Nz 
-       do j=1,grid%Ny 
+    do k=1,grid%Nz
+       do j=1,grid%Ny
           do i=1,grid%Nx
              if (inputs%npa.eq.1) then
                 ipos(:)=(/grid%xxc(i),grid%yyc(j),grid%zzc(k)/)
@@ -3496,7 +3511,7 @@ contains
              call prof_interp(ipos,denp,ti,vtor,te,dene,deni,bckgrnd_dens)
              papprox(i,j,k)= bckgrnd_dens*denf
              call rho_interp(ipos,rho)
-             if(rho.lt.1.1) papprox_tot=papprox_tot+papprox(i,j,k) 
+             if(rho.lt.1.1) papprox_tot=papprox_tot+papprox(i,j,k)
           enddo
        enddo
     enddo
@@ -3526,7 +3541,7 @@ contains
                       cycle loop_over_fast_ions
                    endif
                    !! -------- check if particle flies into NPA detector ---- !!
-                   if(inputs%npa.eq.1)then  
+                   if(inputs%npa.eq.1)then
                       vi_abs=sqrt(dot_product(vi,vi))
                       alpha=acos(dot_product(npa%los,vi(:))/(vi_abs*npa%dlos))
                       if (alpha.gt.npa%opening_angle) cycle loop_over_fast_ions
@@ -3534,7 +3549,7 @@ contains
                    iind=(/i,j,k/)
                    call mc_start(iind(:), vi(:), ipos(:))
                    !! -------- check if track ends at the NPA detector ---- !!
-                   if(inputs%npa.eq.1)then 
+                   if(inputs%npa.eq.1)then
                       !! check if track ends at the NPA detector
                       ray=ipos-diag%xyzhead(1,:)
                       hit_pos(:)=ipos(:)+vi(:)/vi_abs*sqrt(dot_product(ray,ray))
@@ -3556,7 +3571,7 @@ contains
                    if(sum(prob).le.0.)cycle loop_over_fast_ions
                    !! --------- solve collisional radiative model along track-!!
                    states=prob*denf
-                   loop_along_track: do jj=1,ntrack     
+                   loop_along_track: do jj=1,ntrack
                       call colrad(pos_arr(:,jj),vi(:),dt_arr(jj) &
                            ,states,photons,pfida_type,nlaunch2,ipos)
                       if(photons.le.0.d0)cycle loop_over_fast_ions
@@ -3568,11 +3583,11 @@ contains
           enddo loop_along_x
        enddo loop_along_y
     enddo loop_along_z
-    !$OMP END PARALLEL DO 
+    !$OMP END PARALLEL DO
   end subroutine passive_fida
 
 
- 
+
   !*****************************************************************************
   !----------- Calculation of weight functions----------------------------------
   !*****************************************************************************
@@ -3580,18 +3595,18 @@ contains
     real(double), dimension(:),intent(in)  :: X!! x-axis
     real(double),              intent(in)  :: sigma!! width
     real(double), dimension(:),intent(out) :: F!! result
-    real(double), dimension(3) :: A!! 
+    real(double), dimension(3) :: A!!
     real(double), dimension(size(X)) :: Z
     A(1)=0.
     A(2)=sigma
     Z=(X-A(1))/A(2)
     F = exp(-0.5d0*Z**2)/A(2)/sqrt(2.*pi)
-  end subroutine gauss_funct  
+  end subroutine gauss_funct
   subroutine weight_function
     real(double), dimension(:), allocatable :: radius !! radial position
     real(double), dimension(:), allocatable :: phi_b_los,phi_a_bxlos !! angles
-    real(double), dimension(:), allocatable :: Babs_arr  
-    real(double)                   :: photons !! photon flux 
+    real(double), dimension(:), allocatable :: Babs_arr
+    real(double)                   :: photons !! photon flux
     real(double), dimension(nlevs) :: fdens,hdens,tdens,halodens
     real(double), dimension(3)     :: los_vec,bxl
     real(double), dimension(3)     :: a_norm,b_norm,c_norm
@@ -3614,27 +3629,27 @@ contains
     real(double),dimension(n_stark):: wavel  !!wavelength vector [A)
     real(double),dimension(3)      :: vn  ! vi in m/s
    !! Determination of the CX probability
-    real(double),dimension(3)      :: vnbi_norm,vnbi_f,vnbi_h,vnbi_t !! Velocity of NBI neutrals 
+    real(double),dimension(3)      :: vnbi_norm,vnbi_f,vnbi_h,vnbi_t !! Velocity of NBI neutrals
     real(double),dimension(3)      :: vhalo  !! v of halo neutral
     integer                        :: in      !! index of neut rates
     real(double),dimension(nlevs)  :: rates   !! Rate coefficiants for CX
     real(double),dimension(nlevs)  :: states  ! Density of n-states
     !! COLRAD
     real(double)                   :: dt  !!time interval in cell
-    !! ---- Solution of differential equation  ---- ! 
+    !! ---- Solution of differential equation  ---- !
     integer,dimension(3)                  :: ac  !!actual cell
     real(double), dimension(3)            :: pos,ipos !! position of mean cell
-    !! B field 
+    !! B field
     integer(long):: ir,iz
     real(double):: r,z
 
-    !! profiles 
+    !! profiles
     real(double):: rho
     integer(long):: irho
 
-    integer                               :: cc 
-    real(double),dimension(  grid%ntrack) :: wght   !! radiation wght per cell 
-    real(double),dimension(  grid%ntrack) :: los_wght !! los wght 
+    integer                               :: cc
+    real(double),dimension(  grid%ntrack) :: wght   !! radiation wght per cell
+    real(double),dimension(  grid%ntrack) :: los_wght !! los wght
     real(double),dimension(grid%nx,grid%ny,grid%nz,diag%nchan) :: los_weight !! los wght
     integer(long)                         :: ichan,iichan
     character(120)                        :: filename
@@ -3670,7 +3685,7 @@ contains
     print*, 'nr of energies, pitches and gyro angles' &
          ,inputs%nr_energy_wght,inputs%nr_pitch_wght,inputs%nr_gyro_wght
     print*, 'maximal energy: ', inputs%emax_wght
-    allocate(ebarr(inputs%nr_energy_wght))  
+    allocate(ebarr(inputs%nr_energy_wght))
     do i=1,inputs%nr_energy_wght
        ebarr(i)=real(i-0.5)*inputs%emax_wght/real(inputs%nr_energy_wght)
     enddo
@@ -3684,13 +3699,13 @@ contains
     do i=1,inputs%nr_gyro_wght
        phiarr(i)=real(i-1.)*2.d0*pi/real(inputs%nr_gyro_wght)
     enddo
-    
+
     if(inputs%ichan_wght.gt.0) then
        nchan=1
     else
        nchan=diag%nchan
     endif
-    
+
     allocate(radius(nchan),phi_b_los(nchan),phi_a_bxlos(nchan))
     allocate(babs_arr(nchan))
     phi_b_los=0.d0 ; phi_a_bxlos=0.d0 ; radius=0.d0
@@ -3708,20 +3723,20 @@ contains
     !! because the structure is over-written
     los_weight(:,:,:,:)=diag%los_wght(:,:,:,:)
     loop_over_channels: do iichan=1,nchan
-       
+
        if(inputs%ichan_wght.le.0) then
           ichan=iichan
-       else 
+       else
           ichan=inputs%ichan_wght
        endif
-       
+
        !! Define instfumental function
        do i=1,ninstfu
           w_instfu(i)=real(i-1.)/dble(ninstfu-1.)*6.d0*diag%instfu(ichan)-3.d0*diag%instfu(ichan)
        enddo
        call gauss_funct(w_instfu,diag%instfu(ichan),i_instfu)
        i_instfu=i_instfu/sum(i_instfu)
-  
+
 
 
 
@@ -3732,31 +3747,31 @@ contains
        print*,'Radius:',radius(iichan)
        !! Calcullate mean kinetic profiles...
        cc=0       ; los_wght=0.d0 ; wght=0.d0
-       fdens=0.d0 ; hdens=0.d0    ; tdens=0.d0  ; halodens=0.d0  
+       fdens=0.d0 ; hdens=0.d0    ; tdens=0.d0  ; halodens=0.d0
        brzt=0.d0
        ti=0.d0    ; te=0.d0
        dene=0.d0  ; denp=0.d0     ; deni=0.d0
-       vtor=0.d0  ; pos=0.d0 
+       vtor=0.d0  ; pos=0.d0
        call read_field
        deallocate(prof%rho, prof%te, prof%ti,prof%dene &
             , prof%denp, prof%deni,prof%vtor, prof%zeff,prof%bckgrnd_dens)
        call read_profiles
        do k=1,grid%nz
-          do j=1,grid%ny 
-             do i=1,grid%nx 
+          do j=1,grid%ny
+             do i=1,grid%nx
                 if(los_weight(i,j,k,ichan).gt.0.)then
                    cc=cc+1
                    if(cc.gt.grid%ntrack) stop 'ntrack value too low!!'
                    los_wght(cc)=los_weight(i,j,k,ichan)
                    !! integrate beam/halo density
                    fdens=fdens &
-                        +result%neut_dens(i,j,k,:,nbif_type)*los_wght(cc) 
+                        +result%neut_dens(i,j,k,:,nbif_type)*los_wght(cc)
                    hdens=hdens &
-                        +result%neut_dens(i,j,k,:,nbih_type)*los_wght(cc) 
+                        +result%neut_dens(i,j,k,:,nbih_type)*los_wght(cc)
                    tdens=tdens &
                         +result%neut_dens(i,j,k,:,nbit_type)*los_wght(cc)
                    halodens=halodens &
-                        +result%neut_dens(i,j,k,:,halo_type)*los_wght(cc) 
+                        +result%neut_dens(i,j,k,:,halo_type)*los_wght(cc)
                    !! determine mean values along LOS
                    wght(cc)=(result%neut_dens(i,j,k,3,nbif_type)   &
                         + result%neut_dens(i,j,k,3,nbih_type) &
@@ -3779,7 +3794,7 @@ contains
           enddo
        enddo
 
-       !! there is no Impurity ion halo calculation. Therefore,  
+       !! there is no Impurity ion halo calculation. Therefore,
        !! assume that there were no impurities
        if(denp.gt.0)halodens=halodens*dene/denp
 
@@ -3791,10 +3806,10 @@ contains
        vnbi_norm=vnbi_norm/sqrt(dot_product(vnbi_norm,vnbi_norm))
        vnbi_f=vnbi_norm*nbi%vinj
        vnbi_h=vnbi_norm*nbi%vinj/sqrt(2.d0)
-       vnbi_t=vnbi_norm*nbi%vinj/sqrt(3.d0)     
+       vnbi_t=vnbi_norm*nbi%vinj/sqrt(3.d0)
        !! store kinetic quantities in irho and irho+1
        call rho_interp(pos,rho)
-       irho=floor(rho/prof%drho)+1  
+       irho=floor(rho/prof%drho)+1
        prof%denp(irho)  =denp/ rad
        prof%denp(irho+1)=denp/ rad
        prof%dene(irho)=dene/ rad
@@ -3825,16 +3840,16 @@ contains
        diag%los_wght(ac(1),ac(2),ac(3),:)=0.
        diag%los_wght(ac(1),ac(2),ac(3),ichan)=1.
        !! Determine the angle between the B-field and the Line of Sight
-       los_vec(1)=pos(1)-diag%xyzhead(ichan,1) 
-       los_vec(2)=pos(2)-diag%xyzhead(ichan,2) 
-       los_vec(3)=pos(3)-diag%xyzhead(ichan,3) 
-       los_vec=los_vec/sqrt(dot_product(los_vec,los_vec)) 
-            
+       los_vec(1)=pos(1)-diag%xyzhead(ichan,1)
+       los_vec(2)=pos(2)-diag%xyzhead(ichan,2)
+       los_vec(3)=pos(3)-diag%xyzhead(ichan,3)
+       los_vec=los_vec/sqrt(dot_product(los_vec,los_vec))
+
        !!angle between a_norm and los_vec
        bxl(1) =  b_norm(2)*los_vec(3) - b_norm(3)*los_vec(2)
        bxl(2) =-(b_norm(1)*los_vec(3) - b_norm(3)*los_vec(1))
        bxl(3) =  b_norm(1)*los_vec(2) - b_norm(2)*los_vec(1)
-       bxl=bxl/sqrt(dot_product(bxl,bxl)) 
+       bxl=bxl/sqrt(dot_product(bxl,bxl))
        phi_a_bxlos(iichan)=acos(dot_product(a_norm,bxl))
        print*,'angle between a_norm and B x Los:', phi_a_bxlos(iichan)*180./pi
 
@@ -3843,14 +3858,14 @@ contains
        print*,'Angle between B and LOS [deg]:', phi_b_los(iichan)
        !! START calculation of weight functions
 
-       !! do the main simulation  !! 
+       !! do the main simulation  !!
        !$OMP PARALLEL DO private(i,vabs,j,sinus,k,gyro_angle,vi_norm, &
        !$OMP& dt_arr,ic,pos_out,ntrack,pos_edge, &
        !$OMP& wght,jj,length,dt,half_max_wght,  &
        !$OMP& states,vi,rates,in,vhalo,photons,wavel,intens,l,iif,ii)
- 
-       
-       !! LOOP over the three velocity vector components 
+
+
+       !! LOOP over the three velocity vector components
        !! (pitch,gyro angle, energy)
        do j = 1, inputs%nr_pitch_wght !! pitch loop
           sinus = sqrt(1.d0-ptcharr(j)**2)
@@ -3860,8 +3875,8 @@ contains
              vi_norm=sinus*cos(gyro_angle)*a_norm &
                   +    ptcharr(j)*b_norm*inputs%btipsign &
                   +    sinus*sin(gyro_angle)*c_norm
-             !! calcualte possible trajectory of fast-neutral that intersect 
-             !! the measurment position with this velocity 
+             !! calcualte possible trajectory of fast-neutral that intersect
+             !! the measurment position with this velocity
              !! The measurement postion is at maximum NBI density along LOS
              call track(-vi_norm,pos,pos_out,dt_arr,ntrack,ic)
              if(ntrack.gt.2)then
@@ -3871,7 +3886,7 @@ contains
              endif
              !! now determine the FWHM track length throught the grid!
              call track(vi_norm,pos_edge,pos_out,dt_arr,ntrack,ic)
-             !! Calculate averge beam density seen by the fast-ion        
+             !! Calculate averge beam density seen by the fast-ion
              wght=0.d0
              if(ntrack.gt.grid%ntrack) stop 'ntrack value too low!!'
              do jj=1,ntrack
@@ -3890,8 +3905,8 @@ contains
                 if (wght(jj).gt.half_max_wght)length=length+dt_arr(jj)
              enddo
              !! length=sum(wght(:)*dt_arr(:))/maxval(wght) ! (FWHM)
-             !! determine time by length and velocity 
-             !! calculate the average time until a fast-neutral is 
+             !! determine time by length and velocity
+             !! calculate the average time until a fast-neutral is
              !! detected after its neutralization
              do i = 1, inputs%nr_energy_wght !! energy loop
                 vabs = sqrt(ebarr(i)/(v_to_E*inputs%ab))
@@ -3915,7 +3930,7 @@ contains
                 !! photons: [Ph*cm/s/fast-ion]-!!
                 !! calcualte spectrum of this one fast-ion
                 call spectrum(vi,pos,1.d0,pfida_type,wavel,intens)
-                stark_components: do l=1,n_stark 
+                stark_components: do l=1,n_stark
                    instrument_function:do iif=1,ninstfu
                       wavelength_ranges: do ii=1,nwav
                          if (wavel(l)+w_instfu(iif).ge.wav_arr(ii).and. &
@@ -3944,20 +3959,20 @@ contains
     print*,'end of weight function calcultaion'
 
  !! Open file for the outputs
-    filename=trim(adjustl(result_dir))//"/weight_function.bin" 
+    filename=trim(adjustl(result_dir))//"/weight_function.bin"
     open (66, file =filename,access='stream')
     write(66)inputs%shot_number
     write(66)inputs%time
-    write(66)inputs%ichan_wght 
+    write(66)inputs%ichan_wght
     write(66)inputs%nr_energy_wght  !!Nr of energies
     write(66)ebarr
-    write(66)ebarr(2)-ebarr(1)   
+    write(66)ebarr(2)-ebarr(1)
     write(66)inputs%nr_pitch_wght  !!Nr. of pitches
     write(66)ptcharr
     write(66)abs(ptcharr(2)-ptcharr(1))
     write(66)inputs%nr_gyro_wght  !!Nr. of gyro angles
     write(66)phiarr
-    write(66)abs(phiarr(2)-phiarr(1))       
+    write(66)abs(phiarr(2)-phiarr(1))
     write(66)nwav
     write(66)central_wavel
     write(66)inputs%dwav_wght
@@ -3971,7 +3986,7 @@ contains
     close (66)
 
     print*, 'weight function written to: ',filename
-    deallocate(ebarr)  
+    deallocate(ebarr)
     deallocate(ptcharr)
     deallocate(phiarr)
     deallocate(wav_arr)
@@ -4016,13 +4031,13 @@ end module application
 !*****************************************************************************
 program fidasim
   use application
-  implicit none 
+  implicit none
   integer, dimension(8)              :: time_arr,time_start,time_end !Time array
   integer                            :: i,j,k,n,los,seed
   integer                            :: hour,minu,sec
   real(double)                       :: random_init
 
- 
+
   !! measure time
   call date_and_time (values=time_start)
   write(*,"(A,I2,A,I2.2,A,I2.2)") 'START: hour, minute, second: '  &
@@ -4089,14 +4104,14 @@ program fidasim
   if(inputs%npa.eq.1)then
      print*, 'this is a NPA simultation!'
      inputs%nr_npa=1000000
-     allocate(npa%v(inputs%nr_npa,3)) 
-     allocate(npa%ipos(inputs%nr_npa,3)) 
-     allocate(npa%fpos(inputs%nr_npa,3)) 
+     allocate(npa%v(inputs%nr_npa,3))
+     allocate(npa%ipos(inputs%nr_npa,3))
+     allocate(npa%fpos(inputs%nr_npa,3))
      allocate(npa%wght(inputs%nr_npa))
      allocate(npa%kind(inputs%nr_npa))
-     npa%counter=0    
+     npa%counter=0
   endif
-  
+
 
   !! -----------------------------------------------------------------------
   !! --------------- CALCULATE/LOAD the BEAM and HALO DENSITY---------------
@@ -4105,7 +4120,7 @@ program fidasim
      call read_neutrals()
   else
      if(inputs%nr_ndmc.gt.0)then
-        !! ----------- ndmc (neutral density monte carlo ------------------- !! 
+        !! ----------- ndmc (neutral density monte carlo ------------------- !!
         call date_and_time (values=time_arr)
         write(*,"(A,I2,A,I2.2,A,I2.2)") 'ndmc:   ' ,time_arr(5), ':' &
              , time_arr(6), ':',time_arr(7)
@@ -4140,7 +4155,7 @@ program fidasim
   !! -----------------------------------------------------------------------
   !! --------------- CALCULATE the FIDA RADIATION/ NPA FLUX ----------------
   !! -----------------------------------------------------------------------
-  if(inputs%nr_fida.gt.0.and.inputs%simfa.ne.0)then    
+  if(inputs%nr_fida.gt.0.and.inputs%simfa.ne.0)then
      if(inputs%nr_ndmc.gt.0)then
         call date_and_time (values=time_arr)
         write(*,"(A,I2,A,I2.2,A,I2.2)") 'D-alpha main: ' ,time_arr(5), ':' &
@@ -4162,7 +4177,7 @@ program fidasim
   !! -------------------------------------------------------------------
   !! ----------- Calculation of weight functions -----------------------
   !! -------------------------------------------------------------------
-  if(inputs%calc_wght.eq.1) then 
+  if(inputs%calc_wght.eq.1) then
      colrad_threshold=0. !! to speed up simulation!
      call date_and_time (values=time_arr)
      write(*,"(A,I2,A,I2.2,A,I2.2)") 'weight function:    '  &
@@ -4187,7 +4202,7 @@ program fidasim
     sec  = sec +60
     minu = minu -1
   endif
-    
+
   write(*,"(A,I2,A,I2.2,A,I2.2)") 'duration:                  ' &
        ,hour, ':',minu, ':',sec
 
@@ -4199,7 +4214,7 @@ program fidasim
   deallocate(tables%neut)
   deallocate(tables%qi)
   deallocate(tables%qe)
-  deallocate(tables%einstein) 
+  deallocate(tables%einstein)
   !! distribution structure
   if(allocated(fbm%energy))then
      deallocate(fbm%energy)
@@ -4219,9 +4234,9 @@ program fidasim
   deallocate(grid%yyc)
   deallocate(grid%zzc)
   deallocate(grid%rrc)
-  deallocate(grid%Brzt) 
-  deallocate(grid%E) 
-  deallocate(grid%rho) 
+  deallocate(grid%Brzt)
+  deallocate(grid%E)
+  deallocate(grid%rho)
   !! Diagnostic inputs
   deallocate(prof%rho, prof%te, prof%ti,prof%dene &
        , prof%denp, prof%deni,prof%vtor, prof%zeff)
@@ -4234,15 +4249,14 @@ program fidasim
   deallocate(result%velocity_counter)
   deallocate(result%vel_vec_red_lev)
   if(inputs%calc_spec.eq.1)deallocate(result%spectra)
-  if(inputs%calc_birth.eq.1)deallocate(result%birth_dens) 
+  if(inputs%calc_birth.eq.1)deallocate(result%birth_dens)
 
   !!deallocate npa arrays
   if(inputs%npa .eq. 1)then
-     deallocate(npa%v) 
-     deallocate(npa%ipos) 
-     deallocate(npa%fpos) 
+     deallocate(npa%v)
+     deallocate(npa%ipos)
+     deallocate(npa%fpos)
      deallocate(npa%wght)
      deallocate(npa%kind)
   endif
 end program fidasim
- 
