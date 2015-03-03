@@ -55,8 +55,10 @@ END
 PRO make_interpolating_grid,inputs,inter_grid,err
 
     err = 1
-    rr = inputs.rmin + ((inputs.rmax-inputs.rmin)/(inputs.nr-1))*dindgen(inputs.nr)
-    ww = inputs.wmin + ((inputs.wmax-inputs.wmin)/(inputs.nw-1))*dindgen(inputs.nw)
+    dr = (inputs.rmax-inputs.rmin)/(inputs.nr-1)
+    dw = (inputs.wmax-inputs.wmin)/(inputs.nw-1)
+    rr = inputs.rmin + dr*dindgen(inputs.nr)
+    ww = inputs.wmin + dw*dindgen(inputs.nw)
 
     r2d = rr # replicate(1,inputs.nw)
     w2d = replicate(1,inputs.nr) # ww
@@ -64,10 +66,10 @@ PRO make_interpolating_grid,inputs,inter_grid,err
     err = 0
 
     inter_grid = {r2d:r2d,w2d:w2d,$
-                  rr:rr,ww:ww,$
+                  rr:rr,ww:ww,dr:dr,dw:dw,$
                   rmin:inputs.rmin,wmin:inputs.wmin,$
                   rmax:inputs.rmax,wmax:inputs.wmax,$
-                  nr:inputs.nr,nw:inputs.nw,err:0}
+                  nr:inputs.nr,nw:inputs.nw,ng:long(inputs.nw*inputs.nr),err:0}
 END
 
 PRO xyz_to_uvw,ALPHA,BETA,x,y,z, u,v,w, origin = origin
@@ -152,7 +154,7 @@ PRO uvw_to_xyz,ALPHA,BETA,u,v,w,x,y,z,origin=origin
 
 END
 
-PRO make_beam_grid,inputs,grid,err
+PRO make_beam_grid,inputs,beam_grid,err
 
     err=1
 
@@ -200,13 +202,13 @@ PRO make_beam_grid,inputs,grid,err
         x_grid[i,j,k]=xc[l] & y_grid[i,j,k]=yc[l] & z_grid[i,j,k]=zc[l]
     endfor
 
-    grid={nx:nx,ny:ny,nz:nz,xc:xc,yc:yc,zc:zc,uc:uc,vc:vc,wc:wc,$
-          dx:dx,dy:dy,dz:dz,dr:dr,drmin:drmin,dv:dv,ng:ng,$
-          r_grid:r_grid,phi_grid:phi_grid,$
-          w_grid:w_grid,v_grid:v_grid,u_grid:u_grid,$
-          x_grid:x_grid,y_grid:y_grid,z_grid:z_grid,$
-          xmin:inputs.xmin,ymin:inputs.ymin,zmin:inputs.zmin,$
-          xmax:inputs.xmax,ymax:inputs.ymax,zmax:inputs.zmax}
+    beam_grid={nx:nx,ny:ny,nz:nz,xc:xc,yc:yc,zc:zc,uc:uc,vc:vc,wc:wc,$
+               dx:dx,dy:dy,dz:dz,dr:dr,drmin:drmin,dv:dv,ng:ng,$
+               r_grid:r_grid,phi_grid:phi_grid,$
+               w_grid:w_grid,v_grid:v_grid,u_grid:u_grid,$
+               x_grid:x_grid,y_grid:y_grid,z_grid:z_grid,$
+               xmin:inputs.xmin,ymin:inputs.ymin,zmin:inputs.zmin,$
+               xmax:inputs.xmax,ymax:inputs.ymax,zmax:inputs.zmax}
 
     err=0
     GET_OUT:
@@ -528,19 +530,65 @@ PRO prepare_chords,inputs,grid,chords,fida
           sigma_pi_ratio:chords.sigma_pi_ratio[los],los:los,weight:weight,err:err}
 END
 
-PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
+PRO prepare_profiles,inputs,profiles,plasma,err
+    ;;--------------------------------------------
+    ;; Transform kinetic profiles to correct units
+    ;;--------------------------------------------
 
-    !P.charsize=1.
-    !P.background=255 & !P.color=0
-    ;doplot=1
-    ;print, 'reading fast ion distribution function from transp output'
+    rho = profiles.rho
+    rho_max=max(rho)
+    nrho = n_elements(rho)
+
+    ;;Electron density
+    dene = 1.d-6 * profiles.dene > 0. ;[1/cm^3]
+
+    ;;Zeff
+    zeff = profiles.zeff > 1.0
+    zeff = zeff < inputs.impurity_charge
+
+    ;;Impurity density
+    deni = (zeff-1.)/(inputs.impurity_charge*(inputs.impurity_charge-1))*dene
+
+    ;;Proton density
+    denp = dene-inputs.impurity_charge*deni
+    print,'Percent impurity: '+string(total(deni)/total(denp)*100.,f='(1f8.3)')+'%'
+
+    ;;Electron temperature
+    te = 1.d-3 * profiles.te > 0.001 ;keV
+
+    ;;Ion temperature
+    ti = 1.d-3 * profiles.ti > 0.001 ;keV
+    if max(ti) gt 20. or max(te) gt 20. then begin
+        warn,''
+        print, colored('    Electron or Ion temperature greater than 10 keV',f='y')
+        print, colored('    Look at the tables, they might only consider',f='y')
+        print, colored('    temperatures less than 10keV!',f='y')
+    endif
+
+    ;;Plasma rotation
+    omega =   profiles.omega ; rad/s
+
+    ;; test if there are NANs or Infinites in the input profiles
+    index=where(finite([ti,te,dene,denp,zeff,denp,deni]) eq 0,nind)
+    if nind gt 0 then stop
+
+    ;;-------SAVE-------
+    plasma={rho:rho,rho_max:rho_max,nrho:nrho,ab:inputs.ab,ai:inputs.ai,$
+            te:te,ti:ti,omega:omega,dene:dene,denp:denp,deni:deni,denf:denf,zeff:zeff}
+    err=0
+    GET_OUT:
+END
+
+PRO transp_fbm,inputs,grid,fbm_struct,err
+
     cdftest=findfile(inputs.cdf_file)
-    ;print, '======================='
+
     if cdftest[0] eq '' then begin
         error, inputs.cdf_file+' was not found'
         err=1
         goto,GET_OUT
     endif
+
     cdfid=NCDF_Open(inputs.cdf_file,/nowrite)
     ;; Retrieve signals
     ;; --------------------------------------------------------
@@ -558,7 +606,7 @@ PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
     NCDF_Close,cdfid
     ngrid=n_elements(r2d)
     ;;================================
-    ;; get tranpped -passing boundary
+    ;; get trapped -passing boundary
     ;;================================
     rmin=fltarr(ngrid)
     for i=0,ngrid -1 do begin
@@ -595,6 +643,7 @@ PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
         index=npitch-(indgen(npitch)+1)
         fbm[*,*,*]=fbm[*,index,*]
     endif
+
     ;;----------- select energy range -------
     index=where(energy ge inputs.emin and energy le inputs.emax,nenergy)
     energy=energy[index]
@@ -603,6 +652,7 @@ PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
     emin=(float(energy[0])         - float(0.5*dE))>0.
     emax=float(energy[nenergy-1]) + float(0.5*dE)
     print, 'Energy min/max:', emin,emax
+
     ;; --------- select Pitch range --------
     index=where(pitch ge inputs.pmin and pitch le inputs.pmax,npitch)
     pitch=pitch[index]
@@ -612,167 +662,93 @@ PRO transp_fbeam,inputs,grid,denf,fbm_struct,err
     pmax=(float(pitch[npitch-1])+ float(0.5*dP))<1
     print, 'Pitch  min/max:', pmin,pmax
 
-    fbm_struct={cdf_file:inputs.cdf_file,cdf_time:cdf_time,ngrid:ngrid,r2d:r2d,z2d:z2d,bmvol:bmvol,$
-                nenergy:nenergy,emin:emin,emax:emax,energy:energy,npitch:npitch,$
-                pmin:pmin,pmax:pmax,pitch:pitch,fbm:FBM}
-
     ;; ------map fdens on FIDASIM grid and sort out
     ;; ------points outside the separatrix
-    fdens=total(reform(total(fbm,1)),1)*dE*dP
-    a=dblarr(grid.ng)
-    if ngrid le 220 then width=6. else width=4.
-    rout=reform(grid.r_grid,grid.ng)
-    zout=reform(grid.w_grid,grid.ng)
+    rmin=grid.rmin
+    rmax=grid.rmax
+    dr=grid.dr
+    wmin=grid.wmin
+    wmax=grid.wmax
+    dw=grid.dw
+
+    nr=grid.nr
+    nz=grid.nw
+    rgrid=grid.rr
+    wgrid=grid.ww
+
+    denf_grid=dblarr(nr,nw)
+    fbm_grid =dblarr(nenergy,npitch,nr,nw)
     TRIANGULATE, r2d, z2d, tr
-    fdens2=griddata(r2d,z2d,fdens,xout=rout,yout=zout,/linear,triangles=tr)
 
-    ;;set negative values to zero
-    fdens2=fdens2 >0.
+    ;; DENF
+    fdens=total(reform(total(fbm,1)),1)*dE*dP
+    denf=griddata(r2d,z2d,fdens,xout=rgrid,yout=wgrid $
+                  ,/grid,/SHEPARDS,triangles=tr) >0.
 
-    ;; only write fdens2 if it is close to r2d,z2d grid
-    ;;(this produced empty spots so i turned it off)
-;   for i=0L,grid.ng-1 do a[i]=min(sqrt((z2d-zout[i])^2+(r2d-rout[i])^2))
-;   ww=where(a gt width,nw)
-;   if nw ne 0 then fdens2[ww]=0.
-    denf=reform(fdens2,grid.nx,grid.ny,grid.nz)
+    ;; FBM
+    for i=0,nenergy-1 do begin
+        for j=0,npitch-1 do begin
+            fbm_grid[i,j,*,*]=griddata(r2d,z2d,fbm[i,j,*], $
+                              xout=rgrid,yout=wgrid, $
+                              /grid,/SHEPARDS,triangles=tr) >0.
+        endfor
+    endfor
+
+    ;; sort out positions more than 2 cm outside the separatrix
+    rmaxis=mean(rsurf[*,0])
+    zmaxis=mean(zsurf[*,0])
+    rsep=rsurf[*,(size(rsurf))[2]-1]
+    zsep=zsurf[*,(size(rsurf))[2]-1]
+    x_bdry = rsep - rmaxis
+    y_bdry = zsep - zmaxis
+    r_bdry = sqrt(x_bdry^2 + y_bdry^2)
+    theta  = atan(y_bdry,x_bdry)
+    ;; -- sort and remove identical values --
+    index = uniq(theta,sort(theta))
+    theta           = theta[index]
+    r               = r_bdry[index]
+    ;; --- make theta periodic
+    n               = n_elements(r)
+    r_bdry          = fltarr(n+2)
+    theta_bdry      = fltarr(n+2)
+    theta_bdry[1:n] = theta
+    r_bdry[1:n]     = r
+    r_bdry[0]       = r[n-1]
+    theta_bdry[0]   = theta[n-1] - 2.*!pi
+    r_bdry[n+1]     = r[0]
+    theta_bdry[n+1] = theta[0] + 2.*!pi
+    ;; -- express (r_pts,z_pts) in (r,theta) coordinates --
+    x_pts = grid.r2d - rmaxis
+    y_pts = grid.z2d - zmaxis
+    r_pts = sqrt(x_pts^2 + y_pts^2)
+    theta_pts=atan(y_pts,x_pts)
+    ;; -- interpolate to get the radial position of the boundary
+    ;;    evaluated at theta = theta_pts --
+    index=sort(theta_pts)
+    mapped = interpol(r_bdry,theta_bdry,theta_pts[index])
+    r_boundary = theta_pts*0.d
+    r_boundary[index]=mapped
+    index = where(r_pts gt r_boundary+2., nind)
+    if nind gt 0 then begin
+        indices=array_indices(r_pts,index)
+        for i=0,(size(indices))[2]-1 do begin
+            fbm_grid[*,*,indices[0,i],indices[1,i]]=0.
+        endfor
+    endif
+
+
+    fbm_struct={cdf_file:inputs.cdf_file,cdf_time:cdf_time,ngrid:ngrid,r2d:r2d,z2d:z2d,bmvol:bmvol,$
+                nenergy:nenergy,emin:emin,emax:emax,energy:energy,npitch:npitch,$
+                pmin:pmin,pmax:pmax,pitch:pitch,fbm:fbm_grid,denf:denf}
     err=0
     GET_OUT:
 END
 
-PRO prepare_profiles,inputs,profiles,plasma,err
-    ;;--------------------------------------------
-    ;; Transform kinetic profiles to correct units
-    ;;--------------------------------------------
+PRO prepare_fbm,inputs,grid,fbm,err
 
-    rho = profiles.rho
-    rho_max=max(rho)
-    nrho = n_elements(rho)
+    ;;TODO distribution specification
+    transp_fbm,inputs,grid,fbm,err
 
-    ;;Electron density
-    dene = 1.d-6 * profiles.dene > 0. ;[1/cm^3]
-
-    ;;Zeff
-    zeff = profiles.zeff > 1.0
-    zeff = zeff < inputs.impurity_charge
-
-    ;;Impurity density
-    deni = (zeff-1.)/(inputs.impurity_charge*(inputs.impurity_charge-1))*dene
-
-    ;;Proton density
-    denp = dene-inputs.impurity_charge*deni
-    print,'Percent impurity: '+string(total(deni)/total(denp)*100.,f='(1f8.3)')+'%'
-
-    ;;Fast-ion density
-    if inputs.load_fbm then begin
-        transp_fbeam,inputs,grid,denf,fbm_struct,terr
-        if terr eq 1 then begin
-            error, 'Failed to map fast ion density'
-            err=1
-            goto,GET_OUT
-        endif
-    endif else begin
-        denf=dene*0.d0
-        fbm_struct={err:1}
-    endelse
-
-    ;;Electron temperature
-    te = 1.d-3 * profiles.te > 0.001 ;keV
-
-    ;;Ion temperature
-    ti = 1.d-3 * profiles.ti > 0.001 ;keV
-    if max(ti) gt 20. or max(te) gt 20. then begin
-        warn,''
-        print, colored('    Electron or Ion temperature greater than 10 keV',f='y')
-        print, colored('    Look at the tables, they might only consider',f='y')
-        print, colored('    temperatures less than 10keV!',f='y')
-    endif
-
-    ;;Plasma rotation
-    omega =   profiles.omega ; rad/s
-
-    ;; test if there are NANs or Infinites in the input profiles
-    index=where(finite([ti,te,dene,denp,zeff,denp,deni]) eq 0,nind)
-    if nind gt 0 then stop
-
-    ;;-------SAVE-------
-    plasma={rho:rho,rho_max:rho_max,nrho:nrho,ab:inputs.ab,ai:inputs.ai,$
-            te:te,ti:ti,omega:omega,dene:dene,denp:denp,deni:deni,denf:denf,zeff:zeff}
-    err=0
-    GET_OUT:
-END
-
-FUNCTION sinterpol,v,x,u,sortt=sortt,_extra=_extra
-    if n_elements(sortt) lt 1 then sortt=0
-
-    if sortt then begin
-        ind=sort(X)
-    endif else begin
-        ind=lindgen(n_elements(x))
-    endelse
-
-    return,interpol(v[ind],x[ind],u,_extra=_extra)
-END
-
-PRO brems,inputs,det,profiles,equil,vbline
-    ;; Calculates visible bremsstrahlung along FIDA sightlines
-    ;; WWH 6/2013
-
-    ;; INPUT
-    ;; result_dir directory to write output
-    ;; det       structure with detector lines of sight
-    ;; profiles   structure with plasma profiles vs. rho
-
-    ;; OUTPUT
-    ;; file with the surface radiance (ph/s-m2-nm-sr) for
-    ;; each sightline
-
-    ;*******************************************************************
-    ;*****************************************
-    ; Plasma parameters
-    rho=profiles.rho
-    te=profiles.te              ; eV
-    dene=profiles.dene*1.e-6    ; cm^-3
-    zeff=profiles.zeff
-
-    ; Require non-zero values for te and ne
-    w=where(te le 0. or dene le 0.,nw)
-    if nw gt 0 then begin
-        rho=rho[0:w[0]-1]
-        te=te[0:w[0]-1]
-        dene=dene[0:w[0]-1]
-        zeff=zeff[0:w[0]-1]
-    endif
-    w=where(zeff lt 1.,nw) & if nw gt 0 then zeff[w]=1.
-    w=where(zeff gt 6.,nw) & if nw gt 0 then zeff[w]=6.
-    rhomax=max(rho,nr) & nr+=1
-
-    ;**********************************************
-    ; Constants in calculation
-    lambda=6561.    ; average wavelength (Angstroms)
-    h_planck=4.135667e-15  ; [eV/s]
-    c0=2.9979e8 ; [m/s]
-
-    ; Visible bremsstrahlung emissivity versus rho
-    gaunt=5.542-(3.108-alog(te/1000.))*(0.6905-0.1323/zeff)
-    emisrho=10.*7.57d-9*gaunt*dene^2*zeff/(lambda*sqrt(te)) $
-               *exp(-h_planck*c0/(lambda*te))
-
-    ;***********************************************
-    ;NOW do line integration to get surface radiance
-    ;***********************************************
-    nchan=det.nchan
-    los=det.los
-    vbline=replicate(0.,nchan)
-
-    for i=0,nchan-1 do begin
-        rhospath=equil.rho_chords.rhos[*,los[i]]
-        rhospath=rhospath[where(finite(rhospath))]
-        vbepath=sinterpol(emisrho,rho,rhospath,/sort)
-        wgtr1=where(rhospath ge rhomax,nwgtr1)
-        ;set emission at radii outside of max rho to zero
-        if nwgtr1 ge 0 then vbepath[wgtr1]=0.0
-        vbline[i]=total(vbepath)*equil.rho_chords.ds*0.001*inputs.dlambda*(4*!DPI)*1.d-4 > 0.001  ; (ph/s-m2-bin)
-    endfor  ; channel loop
 END
 
 PRO write_namelist,inputs
@@ -853,7 +829,7 @@ PRO check_inputs,inputs,err
           "nx","ny","nz","xmin","xmax","ymin","ymax","zmin","zmax","origin","alpha","beta",$
           "n_fast","n_nbi","n_halo","ne_wght","np_wght","nphi_wght",$
           "emax_wght","ichan_wght","dwav_wght","wavel_start_wght","wavel_end_wght",$
-          "calc_npa","calc_spec","calc_birth","calc_fida_wght","calc_npa_wght","calc_brems",$
+          "calc_npa","calc_spec","calc_birth","calc_fida_wght","calc_npa_wght",$
           "load_neutrals","load_fbm","interactive"]
 
     inVars=strlowcase(TAG_NAMES(inputs))
@@ -970,7 +946,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
         success,'Interpolating grid creation completed'
     endelse
 
-    ;;MAKE GRID
+    ;;MAKE BEAM GRID
     info,'Making beam grid...'
     make_beam_grid,inputs,beam_grid,err
     if err eq 1 then begin
@@ -984,7 +960,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ;;CALL DEVICE ROUTINES THAT GET BEAM GEO., FIDA DIAG. INFO, PROFILES, and EQUIL.
     info,'Calling device routines...'
     CALL_PROCEDURE, strlowcase(inputs.device)+'_routines',$
-                    inputs, grid, nbi, chords, profiles, equil, err
+                    inputs, inter_grid, nbi, chords, profiles, equil, err
 
     if err eq 1 then begin
         error,'Device routines failed. Exiting...'
@@ -1009,7 +985,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     if inputs.calc_spec or inputs.calc_npa or $
        inputs.calc_fida_wght or inputs.calc_npa_wght then begin
         info,'Pre-processing chords...'
-        prepare_chords,inputs,grid,chords,fida
+        prepare_chords,inputs,beam_grid,chords,fida
         if fida.err eq 1 then begin
             error,'Chord pre-processing failed. Exiting...'
             goto, GET_OUT
@@ -1033,25 +1009,32 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
         err=0
     endelse
 
-    ;; Calculate bremsstrahlung if desired
-    if inputs.calc_brems eq 0 then begin
-        info,'Calculating bremsstrahlung...'
-        brems,inputs,fida,profiles,equil,brems
-        success,'Bremsstrahlung calculation completed'
+    ;;FBM PRE PROCESSING
+    if inputs.load_fbm then begin
+        info,'Pre-processing FBM...'
+        prepare_fbm,inputs,inter_grid,fbm,err
+        if err eq 1 then begin
+            error,'FBM pre-processing failed. Exiting...'
+            goto,GET_OUT
+        endif else begin
+            success,'FBM pre-processing completed'
+            err=0
+        endelse
     endif
 
+    ;; Plot beam_grid, beam, sightlines, and equilibrium
     plot_file=inputs.install_dir+strupcase(inputs.device)+'/'+ $
               strlowcase(inputs.device)+'_plots.pro'
-    ;; Plot grid, beam, sightlines, and equilibrium
     if keyword_set(plot) and FILE_TEST(plot_file) then begin
         CALL_PROCEDURE, strlowcase(inputs.device)+'_plots',$
-                        inputs,grid,nbi,chords,fida,equil,nbgeom,plasma
+                        inputs,beam_grid,nbi,chords,fida,equil,nbgeom,plasma
     endif
 
     ;;SAVE STRUCTURES
     if keyword_set(save) then begin
         file = inputs.result_dir+'/'+inputs.runid+'.sav'
-        save,inputs,grid,profiles,chords,nbi,equil,nbgeom,fida,plasma,filename=file,/compress
+        save,inputs,inter_grid,beam_grid,profiles,chords,nbi,equil,$
+             nbgeom,fida,plasma,fbm,filename=file,/compress
     endif
 
     ;;COPY INPUT PROCEDURE/FILE/STRUCT TO RESULT DIRECTORY
@@ -1093,14 +1076,13 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     strmax_id=ncdf_dimdef(ncid,'maxstr',max(strlen(inputs.diag)))
 
     if inputs.load_fbm then begin
-        fbm_gdim= ncdf_dimdef(ncid,'fbm_grid',fbm.ngrid)
         fbm_edim=ncdf_dimdef(ncid,'fbm_energy',fbm.nenergy)
         fbm_pdim=ncdf_dimdef(ncid,'fbm_pitch',fbm.npitch)
     endif
 
-    xid = ncdf_dimdef(ncid,'x',grid.nx)
-    yid = ncdf_dimdef(ncid,'y',grid.ny)
-    zid = ncdf_dimdef(ncid,'z',grid.nz)
+    xid = ncdf_dimdef(ncid,'x',beam_grid.nx)
+    yid = ncdf_dimdef(ncid,'y',beam_grid.ny)
+    zid = ncdf_dimdef(ncid,'z',beam_grid.nz)
 
     rid = ncdf_dimdef(ncid,'r',inputs.nr)
     wid = ncdf_dimdef(ncid,'w',inputs.nw)
@@ -1130,7 +1112,6 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     nrho_varid=ncdf_vardef(ncid,'nrho',one_id,/long)
 
     if inputs.load_fbm then begin
-        gdim_varid=ncdf_vardef(ncid,'fbm_ngrid',one_id,/long)
         edim_varid=ncdf_vardef(ncid,'fbm_nenergy',one_id,/long)
         pdim_varid=ncdf_vardef(ncid,'fbm_npitch',one_id,/long)
     endif
@@ -1177,17 +1158,11 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
 
     ;;DEFINE FBM VARIABLES
     if inputs.load_fbm then begin
-        r2d_varid2=ncdf_vardef(ncid,'fbm_r2d',fbm_gdim,/double)
-        z2d_varid=ncdf_vardef(ncid,'fbm_z2d',fbm_gdim,/double)
-        bmvol_varid=ncdf_vardef(ncid,'fbm_bmvol',fbm_gdim,/double)
         energy_varid=ncdf_vardef(ncid,'fbm_energy',fbm_edim,/double)
         pitch_varid=ncdf_vardef(ncid,'fbm_pitch',fbm_pdim,/double)
-        emin_varid=ncdf_vardef(ncid,'fbm_emin',one_id,/double)
-        emax_varid=ncdf_vardef(ncid,'fbm_emax',one_id,/double)
-        pmin_varid=ncdf_vardef(ncid,'fbm_pmin',one_id,/double)
-        pmax_varid=ncdf_vardef(ncid,'fbm_pmax',one_id,/double)
         cdftime_varid=ncdf_vardef(ncid,'fbm_time',one_id,/double)
-        fbm_varid=ncdf_vardef(ncid,'fbm',[fbm_edim,fbm_pdim,fbm_gdim],/double)
+        fbm_varid=ncdf_vardef(ncid,'fbm',[fbm_edim,fbm_pdim,rid,wid],/double)
+        denf_varid=ncdf_vardef(ncid,'denf',twodim,/double)
     endif
 
     ;;DEFINE PLASMA VARIABLES
@@ -1203,16 +1178,12 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     denp_varid=ncdf_vardef(ncid,'denp',rhoid,/double)
     zeff_varid=ncdf_vardef(ncid,'zeff',rhoid,/double)
     omega_varid=ncdf_vardef(ncid,'omega',rhoid,/double)
-    bu_varid=ncdf_vardef(ncid,'bu',twodim,/double)
-    bv_varid=ncdf_vardef(ncid,'bv',twodim,/double)
+    br_varid=ncdf_vardef(ncid,'br',twodim,/double)
+    bphi_varid=ncdf_vardef(ncid,'bphi',twodim,/double)
     bw_varid=ncdf_vardef(ncid,'bw',twodim,/double)
-    eu_varid=ncdf_vardef(ncid,'eu',twodim,/double)
-    ev_varid=ncdf_vardef(ncid,'ev',twodim,/double)
+    er_varid=ncdf_vardef(ncid,'er',twodim,/double)
     ew_varid=ncdf_vardef(ncid,'ew',twodim,/double)
     rho2d_varid=ncdf_vardef(ncid,'rho2d',twodim,/double)
-
-    ;;DEFINE BREMSTRUHLUNG VARIABLES
-    brems_varid=ncdf_vardef(ncid,'brems',chan_id,/double)
 
     ;;LOS VARIABLE DEFINITION
     if inputs.calc_spec or inputs.calc_npa or $
@@ -1252,20 +1223,20 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     end
 
     ;;WRITE BEAM GRID VARIABLES
-    ncdf_varput,ncid,ugrid_varid,double(grid.u_grid)
-    ncdf_varput,ncid,vgrid_varid,double(grid.v_grid)
-    ncdf_varput,ncid,wgrid_varid,double(grid.w_grid)
-    ncdf_varput,ncid,rgrid_varid,double(grid.r_grid)
-    ncdf_varput,ncid,phigrid_varid,double(grid.phi_grid)
-    ncdf_varput,ncid,xgrid_varid,double(grid.x_grid)
-    ncdf_varput,ncid,ygrid_varid,double(grid.y_grid)
-    ncdf_varput,ncid,zgrid_varid,double(grid.z_grid)
+    ncdf_varput,ncid,ugrid_varid,double(beam_grid.u_grid)
+    ncdf_varput,ncid,vgrid_varid,double(beam_grid.v_grid)
+    ncdf_varput,ncid,wgrid_varid,double(beam_grid.w_grid)
+    ncdf_varput,ncid,rgrid_varid,double(beam_grid.r_grid)
+    ncdf_varput,ncid,phigrid_varid,double(beam_grid.phi_grid)
+    ncdf_varput,ncid,xgrid_varid,double(beam_grid.x_grid)
+    ncdf_varput,ncid,ygrid_varid,double(beam_grid.y_grid)
+    ncdf_varput,ncid,zgrid_varid,double(beam_grid.z_grid)
     ncdf_varput,ncid,alpha_varid,double(inputs.alpha)
     ncdf_varput,ncid,beta_varid,double(inputs.beta)
     ncdf_varput,ncid,origin_varid,double(inputs.origin)
-    ncdf_varput,ncid,xc_varid,double(grid.xc)
-    ncdf_varput,ncid,yc_varid,double(grid.yc)
-    ncdf_varput,ncid,zc_varid,double(grid.zc)
+    ncdf_varput,ncid,xc_varid,double(beam_grid.xc)
+    ncdf_varput,ncid,yc_varid,double(beam_grid.yc)
+    ncdf_varput,ncid,zc_varid,double(beam_grid.zc)
 
     ;;WRITE BEAM VARIABLES
     ncdf_varput,ncid,bn_varid,long(inputs.isource[0])
@@ -1287,17 +1258,9 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
         ncdf_varput,ncid,gdim_varid,long(fbm.ngrid)
         ncdf_varput,ncid,edim_varid,long(fbm.nenergy)
         ncdf_varput,ncid,pdim_varid,long(fbm.npitch)
-        ncdf_varput,ncid,r2d_varid2,double(fbm.r2d)
-        ncdf_varput,ncid,z2d_varid,double(fbm.z2d)
-        ncdf_varput,ncid,bmvol_varid,double(fbm.bmvol)
-        ncdf_varput,ncid,energy_varid,double(fbm.energy)
-        ncdf_varput,ncid,pitch_varid,double(fbm.pitch)
-        ncdf_varput,ncid,emin_varid,double(fbm.emin)
-        ncdf_varput,ncid,emax_varid,double(fbm.emax)
-        ncdf_varput,ncid,pmin_varid,double(fbm.pmin)
-        ncdf_varput,ncid,pmax_varid,double(fbm.pmax)
         ncdf_varput,ncid,cdftime_varid,double(fbm.cdf_time)
         ncdf_varput,ncid,fbm_varid,double(fbm.fbm)
+        ncdf_varput,ncid,denf_varid,double(fbm.denf)
     endif
 
     ;;WRITE PLASMA VARIABLES
@@ -1311,18 +1274,14 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ncdf_varput,ncid,deni_varid, double(plasma.deni)
     ncdf_varput,ncid,omega_varid, double(plasma.omega)
     ncdf_varput,ncid,zeff_varid, double(plasma.zeff)
-    ncdf_varput,ncid,bu_varid, double(equil.bu)
-    ncdf_varput,ncid,bv_varid, double(equil.bv)
+    ncdf_varput,ncid,br_varid, double(equil.br)
+    ncdf_varput,ncid,bphi_varid, double(equil.bphi)
     ncdf_varput,ncid,bw_varid, double(equil.bw)
-    ncdf_varput,ncid,eu_varid, double(equil.eu)
-    ncdf_varput,ncid,ev_varid, double(equil.ev)
+    ncdf_varput,ncid,er_varid, double(equil.er)
     ncdf_varput,ncid,ew_varid, double(equil.ew)
     ncdf_varput,ncid,rho_varid, double(plasma.rho)
     ncdf_varput,rho2d_varid, double(equil.rho)
     ncdf_varput,ncid,rhomax_varid, double(plasma.rho_max)
-
-    ;;WRITE BREMS
-    if n_elements(brems) ne 0 then ncdf_varput,ncid,brems_varid,double(brems)
 
     ;;WRITE LINE OF SIGHT (LOS)
     if inputs.calc_spec or inputs.calc_npa or $

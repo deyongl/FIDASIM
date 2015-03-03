@@ -195,7 +195,6 @@ Note: JSON input file only runs on IDL v8.2 and above. If you don't have a compa
 "calc_npa":0,           ## (0 or 1) If 1 do a simulation for NPA
 "calc_spec":1,          ## (0 or 1) If 1 then spectra is calculated
 "calc_birth":1,         ## (0 or 1) If 1 then the birth profile is calculated
-"calc_brems":0,         ## (0 or 1) If 0 use the IDL bremstrahlung calculation
 "calc_fida_wght":1,     ## (0 or 1) If 1 then fida weight functions are calculated
 "calc_npa_wght":0,      ## (0 or 1) If 1 then npa weight functions are calculated
 "load_neutrals":0,      ## (0 or 1) If 1 then the neutral density is loaded from an existing run
@@ -287,21 +286,13 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 
 	;;	IDL> help,equil
 	;;	** Structure <1d474638>, 10 tags, length=6636160, data length=6636138, refs=1:
-	;;	   RHO_GRID        FLOAT     Array[40, 60, 50]
-	;;	   RHO_CHORDS      STRUCT    -> <Anonymous> Array[1]
-	;;	   BU              DOUBLE    Array[40, 60, 50]
-	;;	   BV              DOUBLE    Array[40, 60, 50]
-	;;	   BW              DOUBLE    Array[40, 60, 50]
-	;;	   EU              DOUBLE    Array[40, 60, 50]
-	;;	   EV              DOUBLE    Array[40, 60, 50]
-	;;	   EW              DOUBLE    Array[40, 60, 50]
+	;;	   RHO_GRID        FLOAT     Array[40, 60]
+	;;	   BR              DOUBLE    Array[40, 60]
+	;;	   BPHI            DOUBLE    Array[40, 60]
+	;;	   BW              DOUBLE    Array[40, 60]
+	;;	   ER              DOUBLE    Array[40, 60]
+	;;	   EW              DOUBLE    Array[40, 60]
 	;;	   ERR             INT              0
-
-	;;	IDL> help,equil.rho_chords
-	;;	** Structure <1d48bf08>, 2 tags, length=352008, data length=352004, refs=2:
-	;;	   RHOS            DOUBLE    Array[4000, 11] ;;Rho values along lines of sight
-	;;	   DS              FLOAT          0.300000   ;;step size along line of sight in [cm]
-	;;
 
 	;;	IDL> help,profiles
 	;;	** Structure <1d475698>, 7 tags, length=5816, data length=5810, refs=1:
@@ -331,13 +322,11 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 
 	;;FOR CONVENIENCE HERE ARE THE MINIMUM STRUCTURE DEFINITIONS
 	equil={rho_grid:rho_grid,$	   			;;FIDA GRID IN MAGNETIC FLUX COORDINATES (RHO)
-		   rho_chords:rho_chords,$			;;STRUCTURE CONTAINING AN ARRAY OF RHO VALUES AND STEP SIZE IN [cm]
-		   bu:bu,$					   		;;X MAGNETIC FIELD COMPONENT AT GRID POINTS
-		   bv:bv,$					   		;;Y MAGNETIC FIELD COMPONENT AT GRID POINTS
-		   bw:bw,$					   		;;Z MAGNETIC FIELD COMPONENT AT GRID POINTS
-		   eu:eu,$							;;X ELECTRIC FIELD COMPONENT AT GRID POINTS
-		   ev:ev,$							;;Y ELECTRIC FIELD COMPONENT AT GRID POINTS
-		   ew:ew }							;;Z ELECTRIC FIELD COMPONENT AT GRID POINTS
+		   br:br,$					   		;;R MAGNETIC FIELD COMPONENT AT GRID POINTS
+		   bphi:bphi,$					   	;;PHI MAGNETIC FIELD COMPONENT AT GRID POINTS
+		   bw:bw,$					   		;;W MAGNETIC FIELD COMPONENT AT GRID POINTS
+		   er:er,$							;;R ELECTRIC FIELD COMPONENT AT GRID POINTS
+		   ew:ew }							;;W ELECTRIC FIELD COMPONENT AT GRID POINTS
 
 	nbi={einj:einj,$				   		;;BEAM INJECTION ENERGY [keV]
 		 pinj:pinj,$				   		;;BEAM INJECTION POWER  [MW]

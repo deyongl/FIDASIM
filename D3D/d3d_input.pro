@@ -13,7 +13,7 @@ PRO input_template,inputs                                   ;; Name of this file
 ;;-----------------------------------------------------
 comment='This is a template for D3D runs'
 shot=146088L                                            ;; Shot Number
-time=1.385                                              ;; Time 
+time=1.385                                              ;; Time
 runid='146088H05'                                       ;; runid of FIDASIM
 device='D3D'                                            ;; D3D,NSTX,AUGD,MAST
 result_dir='/u/stagnerl/FIDASIM/RESULTS/D3D/'           ;; Location where results will be stored /RESULTS/runid will be made
@@ -41,7 +41,7 @@ equil='EFIT01'                                          ;; Name of equilibrium. 
 ;;-----------------------------------------------------
 ;; Discharge Parameters
 ;;-----------------------------------------------------
-btipsign=-1.d0                                          ;; Bt and Ip are in the opposite direction   
+btipsign=-1.d0                                          ;; Bt and Ip are in the opposite direction
 ab=2.01410178d0                                         ;; Atomic mass of beam [u]
 ai=2.01410178d0                                         ;; Atomic mass of hydrogenic plasma ions [u]
 impurity_charge=6                                       ;; 5: BORON, 6: carbon, 7: Nitrogen
@@ -49,8 +49,8 @@ impurity_charge=6                                       ;; 5: BORON, 6: carbon, 
 ;;-----------------------------------------------------
 ;; Wavelength Grid
 ;;-----------------------------------------------------
-lambdamin=647.d0                                        ;; Minimum wavelength of wavelength grid [nm] 
-lambdamax=667.d0                                        ;; Maximum wavelength of wavelength grid [nm] 
+lambdamin=647.d0                                        ;; Minimum wavelength of wavelength grid [nm]
+lambdamax=667.d0                                        ;; Maximum wavelength of wavelength grid [nm]
 nlambda=2000L                                           ;; Number of wavelengths
 dlambda= (lambdamax-lambdamin)/double(nlambda)          ;; Wavelength seperation
 
@@ -67,11 +67,11 @@ ymax=-80.          ;; Maximum y value
 zmin=-70.          ;; Minimum z value
 zmax=70.           ;; Maximum z value
 
-origin=[0.,0.,0.]   ;; If using different a coordinate system, this is the origin 
+origin=[0.,0.,0.]   ;; If using different a coordinate system, this is the origin
                     ;; in machine coordinates of the new system
 
 alpha=0.0           ;; Rotation angle in radians from +x about z axis that transforms machine
-                    ;; coordinates to the new system. 
+                    ;; coordinates to the new system.
 beta=0.0            ;; Rotation about +y axis
 ;;--------------------------------------------------
 ;; Define number of Monte Carlo particles
@@ -83,9 +83,9 @@ nr_halo=500000                                          ;; Halo contribution
 ;;--------------------------------------------------
 ;; Calculation of the weight function
 ;;--------------------------------------------------
-ne_wght=50                                              ;; Number of Energies 
-np_wght=50                                              ;; Number of Pitches 
-nphi_wght=50                                            ;; Number of Gyro-angles 
+ne_wght=50                                              ;; Number of Energies
+np_wght=50                                              ;; Number of Pitches
+nphi_wght=50                                            ;; Number of Gyro-angles
 emax_wght=125.                                          ;; Maximum energy (keV)
 ichan_wght=-1                                           ;; -1 for all channels, otherwise a given channel index
 dwav_wght=.2                                            ;; Wavelength interval
@@ -98,10 +98,9 @@ wavel_end_wght=663.                                     ;; Maximum wavelength
 calc_npa=[0]                                            ;; (0 or 1) If 1 do a simulation for NPA
 calc_spec=[1]                                           ;; (0 or 1) If 1 then spectra is calculated
 calc_birth=[1]                                          ;; (0 or 1) If 1 then the birth profile is calculated
-calc_brems=[0]                                          ;; (0 or 1) If 0 use the IDL bremstrahlung calculation
 calc_fida_wght=[1]                                      ;; (0 or 1) If 1 then fida weight functions are calculated
 calc_npa_wght=[0]                                       ;; (0 or 1) If 1 then npa weight functions are calculated
-load_neutrals=[0]                                       ;; (0 or 1) If 1 then the neutral density is loaded from an existing run 
+load_neutrals=[0]                                       ;; (0 or 1) If 1 then the neutral density is loaded from an existing run
 load_fbm=[1]                                            ;; (0 or 1) If 1 then the fbm is loaded (calc_spec/npa overwrites)
 interactive=[1]                                         ;; (0 or 1) If 1 then percent complete is shown
 
@@ -118,6 +117,6 @@ inputs={comment:comment,shot:shot,time:time,runid:runid,device:strupcase(device)
         nr_fast:nr_fast,nr_nbi:nr_nbi,nr_halo:nr_halo,ne_wght:ne_wght,np_wght:np_wght,nphi_wght:nphi_wght,$
         emax_wght:emax_wght,ichan_wght:ichan_wght,dwav_wght:dwav_wght,wavel_start_wght:wavel_start_wght,$
         wavel_end_wght:wavel_end_wght,calc_npa:calc_npa,calc_spec:calc_spec,calc_birth:calc_birth,calc_fida_wght:calc_fida_wght,$
-        calc_npa_wght:calc_npa_wght,calc_brems:calc_brems,load_neutrals:load_neutrals,load_fbm:load_fbm,interactive:interactive}
+        calc_npa_wght:calc_npa_wght,load_neutrals:load_neutrals,load_fbm:load_fbm,interactive:interactive}
 
 END

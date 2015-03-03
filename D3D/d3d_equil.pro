@@ -1,4 +1,4 @@
-FUNCTION d3d_equil,inputs,grid,det
+FUNCTION d3d_equil,inputs,grid
 
 	equil={err:1}
 	;; Get eqdsk
@@ -30,7 +30,7 @@ FUNCTION d3d_equil,inputs,grid,det
 		endif
 	endelse
 
-    rhogrid=rho_rz(g,grid.r_grid/100.,grid.w_grid/100.,/do_linear)
+    rhogrid=rho_rz(g,grid.r2d/100.,grid.w2d/100.,/do_linear)
 
 	calculate_bfield,bp,br,bphi,bz1,g
 ;	help,bp,br,bphi,bz1
@@ -51,57 +51,21 @@ FUNCTION d3d_equil,inputs,grid,det
 	er=-(shift(epot,-1,0) - shift(epot,1,0))/(g.r[2]-g.r[0])
 	ez1=-(shift(epot,0,-1) - shift(epot,0,1))/(g.z[2]-g.z[0])
 
-	;; Interpolate cylindrical fields onto (x,y,z) mesh then rotate vectors
-	bx=dblarr(grid.nx,grid.ny,grid.nz) & by=bx & bz=bx
-	ex=dblarr(grid.nx,grid.ny,grid.nz) & ey=ex & ez=ex
+	;; Interpolate cylindrical fields onto (r,w) mesh
+	b_r=dblarr(grid.nr,grid.nw) & b_phi=b_r & b_w=b_r
+	e_r=dblarr(grid.nr,grid.nw) & e_w=e_r
 
-	for i=0L,grid.nx-1 do for j=0L,grid.ny-1 do for k=0L,grid.nz-1 do begin
-		rgrid=(.01*grid.r_grid[i,j,k] - g.r[0])/(g.r[1]-g.r[0]) ; in grid units
-		zgrid=(.01*grid.w_grid[i,j,k] - g.z[0])/(g.z[1]-g.z[0])    ; WWH 3/31/07
-		bcylr=interpolate(br,[rgrid],[zgrid])
-		ecylr=interpolate(er,[rgrid],[zgrid])
-		bcylphi=interpolate(bphi,[rgrid],[zgrid])
-		ez[i,j,k]=interpolate(ez1,[rgrid],[zgrid])
-		bz[i,j,k]=interpolate(bz1,[rgrid],[zgrid])
-		cph=cos(grid.phi_grid[i,j,k]) & sph=sin(grid.phi_grid[i,j,k])
-		bx[i,j,k]=(cph*bcylr - sph*bcylphi)
-		by[i,j,k]=(sph*bcylr + cph*bcylphi)
-		ex[i,j,k]=cph*ecylr
-		ey[i,j,k]=sph*ecylr
+	for i=0L,grid.nr-1 do for j=0L,grid.nw-1 do begin
+		rgrid=(.01*grid.r2d[i,j] - g.r[0])/(g.r[1]-g.r[0]) ; in grid units
+		zgrid=(.01*grid.w2d[i,j] - g.z[0])/(g.z[1]-g.z[0])    ; WWH 3/31/07
+		b_r[i,j]  =interpolate(br,[rgrid],[zgrid])
+		e_r[i,j]  =interpolate(er,[rgrid],[zgrid])
+		b_phi[i,j]=interpolate(bphi,[rgrid],[zgrid])
+		e_w[i,j]  =interpolate(ez1,[rgrid],[zgrid])
+		b_w[i,j]  =interpolate(bz1,[rgrid],[zgrid])
 	endfor
 
-	if inputs.calc_brems eq 0 then begin
-		;;GET RHO VALUES ALONG LINE OF SIGHT
-		ds=.3    ; step size (cm)
-	    ns=4000  ; maximum number of steps
-
-	    ;; Sightlines
-	    nchan=det.nchan
-	    x0=det.ulens   ; cm
-	    y0=det.vlens
-	    z0=det.wlens
-	    v=fltarr(3,nchan)
-	    for i=0,nchan-1 do begin
-	        v[0,i]=det.ulos[i]-x0[i]
-	        v[1,i]=det.vlos[i]-y0[i]
-	        v[2,i]=det.wlos[i]-z0[i]
-	        v[*,i]=v[*,i]/sqrt(v[0,i]^2+v[1,i]^2+v[2,i]^2)
-	    endfor
-		rhospath=dblarr(ns,nchan)
-	    for i=0,nchan-1 do begin
-	        ;equations for lines in x,y,z are
-	        x=x0[i] + v[0,i]*ds*findgen(ns)  ; cm
-	        y=y0[i] + v[1,i]*ds*findgen(ns)
-	        z=z0[i] + v[2,i]*ds*findgen(ns)
-
-	        rmajvals=(x^2.+y^2.)^.5  ; major radii of all points along ray
-			rhospath[*,i]=rho_rz(g,rmajvals/100.,z/100.,/do_linear)
-	    endfor  ; channel loop
-
-		rho_chords={rhos:rhospath,ds:ds}
-	endif else rho_chords={rhos:0,ds:0}
-
-	equil={g:g,rho_grid:rhogrid,rho_chords:rho_chords,bu:bx,bv:by,bw:bz,eu:ex,ev:ey,ew:ez,err:0}
+	equil={g:g,rho_grid:rhogrid,br:b_r,bphi:b_phi,bw:b_w,er:e_r,ew:e_w,err:0}
 	GET_OUT:
 	return,equil
 END

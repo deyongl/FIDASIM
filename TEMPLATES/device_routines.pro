@@ -29,21 +29,13 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 
 	;;	IDL> help,equil
 	;;	** Structure <1d474638>, 10 tags, length=6636160, data length=6636138, refs=1:
-	;;	   RHO_GRID        FLOAT     Array[40, 60, 50]
-	;;	   RHO_CHORDS      STRUCT    -> <Anonymous> Array[1]
-	;;	   BX              DOUBLE    Array[40, 60, 50]
-	;;	   BY              DOUBLE    Array[40, 60, 50]
-	;;	   BZ              DOUBLE    Array[40, 60, 50]
-	;;	   EX              DOUBLE    Array[40, 60, 50]
-	;;	   EY              DOUBLE    Array[40, 60, 50]
-	;;	   EZ              DOUBLE    Array[40, 60, 50]
+	;;	   RHO_GRID        FLOAT     Array[40, 60]
+	;;	   BR              DOUBLE    Array[40, 60]
+	;;	   BPHI            DOUBLE    Array[40, 60]
+	;;	   BW              DOUBLE    Array[40, 60]
+	;;	   ER              DOUBLE    Array[40, 60]
+	;;	   EW              DOUBLE    Array[40, 60]
 	;;	   ERR             INT              0
-
-	;;	IDL> help,equil.rho_chords
-	;;	** Structure <1d48bf08>, 2 tags, length=352008, data length=352004, refs=2:
-	;;	   RHOS            DOUBLE    Array[4000, 11] ;;Rho values along lines of sight
-	;;	   DS              FLOAT          0.300000   ;;step size along line of sight in [cm]
-	;;
 
 	;;	IDL> help,profiles
 	;;	** Structure <1d475698>, 7 tags, length=5816, data length=5810, refs=1:
@@ -73,12 +65,10 @@ PRO templete_routines,inputs,grid,$     ;;INPUT: INPUTS AND GRID POINTS DO NOT C
 
 	;;FOR CONVINIENCE HERE ARE THE MINIMUM STRUCTURE DEFINITIONS
 	equil={rho_grid:rho_grid,$	   			;;FIDA GRID IN MAGNETIC FLUX COORDINATES (RHO)
-		   rho_chords:rho_chords,$			;;STRUCTURE CONTAINING AN ARRAY OF RHO VALUES AND STEP SIZE IN [cm]
-		   bu:bu,$					   		;;U MAGNETIC FIELD COMPONENT AT GRID POINTS
-		   bv:bv,$					   		;;V MAGNETIC FIELD COMPONENT AT GRID POINTS
+		   br:br,$					   		;;R MAGNETIC FIELD COMPONENT AT GRID POINTS
+		   bphi:bphi,$					   	;;PHi MAGNETIC FIELD COMPONENT AT GRID POINTS
 		   bw:bw,$					   		;;W MAGNETIC FIELD COMPONENT AT GRID POINTS
-		   eu:eu,$							;;U ELECTRIC FIELD COMPONENT AT GRID POINTS
-		   ev:ev,$							;;V ELECTRIC FIELD COMPONENT AT GRID POINTS
+		   er:er,$							;;R ELECTRIC FIELD COMPONENT AT GRID POINTS
 		   ew:ew }							;;W ELECTRIC FIELD COMPONENT AT GRID POINTS
 
 	nbi={einj:einj,$				   		;;BEAM INJECTION ENERGY [keV]

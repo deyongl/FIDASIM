@@ -1,5 +1,5 @@
 ;;RENAME TO "DEVICE"_ROUTINES I.E. D3D_ROUTINES AND RENAME FILE ACCORDINGLY
-PRO d3d_routines,inputs,grid,$ 			;;INPUT: INPUTS AND GRID
+PRO d3d_routines,inputs,grid,$ 			;;INPUT: INPUTS AND INTERPOLATING GRID
 					   nbi,$ 			;;OUTPUT: NEUTRAL BEAM INJECTION INFO STRUCTURE
 					   chords,$ 		;;OUTPUT: CHORDS INFO STRUCTURE
 					   profiles,$		;;OUTPUT: PROFILES STRUCTURE
@@ -7,7 +7,7 @@ PRO d3d_routines,inputs,grid,$ 			;;INPUT: INPUTS AND GRID
 					   err				;;OUTPUT: ERROR STATUS ERR=1 == SOMETHING WENT WRONG
 
 	err=0
- 
+
     ;; CHECK FOR D3D SPECIFIC INPUTS
     inVars=strlowcase(TAG_NAMES(inputs))
     if where('use_transp' eq inVars) eq -1 then begin
@@ -16,7 +16,7 @@ PRO d3d_routines,inputs,grid,$ 			;;INPUT: INPUTS AND GRID
 
 	;;GET BEAM GEOMETRY
 	nbi=d3d_beams(inputs)
-	
+
 	;;GET CHORD GEOMETRY
 	chords=d3d_chords(inputs.shot,inputs.diag,isource=inputs.isource)
 
@@ -34,7 +34,7 @@ PRO d3d_routines,inputs,grid,$ 			;;INPUT: INPUTS AND GRID
 	endif
 
 	;;GET E&M FIELDS AT GRID POINTS
-	equil=d3d_equil(inputs,grid,chords)
+	equil=d3d_equil(inputs,grid)
 	if equil.err eq 1 then begin
 		print,'FAILED TO GET EQUILIBRIUM'
 		err=1
@@ -42,4 +42,4 @@ PRO d3d_routines,inputs,grid,$ 			;;INPUT: INPUTS AND GRID
 	endif
 
 	GET_OUT:
-END 
+END

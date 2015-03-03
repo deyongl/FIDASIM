@@ -84,7 +84,7 @@ zmax=70.           ;; Maximum z value
 origin=[0.,0.,0.]  ;; Origin of the beam coordinates in machine coordinates
 
 alpha=0.0          ;; Rotation angle in radians from +x about z axis that transforms machine
-                   ;; coordinates to the new system. 
+                   ;; coordinates to the new system.
 beta=0.0           ;; Rotation about +y axis
 ;;--------------------------------------------------
 ;; Define number of Monte Carlo particles
@@ -111,7 +111,6 @@ wavel_end_wght=663.   ;; Maximum wavelength
 calc_npa=[0]          ;; (0 or 1) If 1 do a simulation for NPA
 calc_spec=[1]         ;; (0 or 1) If 1 then spectra is calculated
 calc_birth=[1]        ;; (0 or 1) If 1 then the birth profile is calculated
-calc_brems=[0]        ;; (0 or 1) If 0 use the IDL bremstrahlung calculation
 calc_fida_wght=[1]    ;; (0 or 1) If 1 then fida weight functions are calculated
 calc_npa_wght=[0]     ;; (0 or 1) If 1 then npa weight functions are calculated
 load_neutrals=[0]     ;; (0 or 1) If 1 then the neutral density is loaded from an existing run
@@ -134,6 +133,6 @@ inputs={comment:comment,shot:shot,time:time,runid:runid,device:strupcase(device)
         ichan_wght:ichan_wght,dwav_wght:dwav_wght,wavel_start_wght:wavel_start_wght,$
         wavel_end_wght:wavel_end_wght,calc_npa:calc_npa,calc_spec:calc_spec,$
         calc_birth:calc_birth,calc_fida_wght:calc_fida_wght,calc_npa_wght:calc_npa_wght,$
-        calc_brems:calc_brems,load_neutrals:load_neutrals,load_fbm:load_fbm,interactive:interactive}
+        load_neutrals:load_neutrals,load_fbm:load_fbm,interactive:interactive}
 
 END
