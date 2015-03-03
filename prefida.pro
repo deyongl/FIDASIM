@@ -1140,6 +1140,8 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ;;DEFINE INTERPOLATING GRID VARIABLES
     r2d_varid=ncdf_vardef(ncid,'r2d',twodim,/double)
     w2d_varid=ncdf_vardef(ncid,'w2d',twodim,/double)
+    rr_varid =ncdf_vardef(ncid,'rr',rid,/double)
+    ww_varid =ncdf_vardef(ncid,'ww',wid,/double)
 
     ;;DEFINE BEAM VARIABLES
     bn_varid=ncdf_vardef(ncid,'beam',one_id,/long)
@@ -1238,6 +1240,12 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ncdf_varput,ncid,yc_varid,double(beam_grid.yc)
     ncdf_varput,ncid,zc_varid,double(beam_grid.zc)
 
+    ;;WRITE INTERPOLATING GRID VARIABLES
+    ncdf_varput,ncid,r2d_varid,double(inter_grid.r2d)
+    ncdf_varput,ncid,w2d_varid,double(inter_grid.w2d)
+    ncdf_varput,ncid,rr_varid,double(inter_grid.rr)
+    ncdf_varput,ncid,ww_varid,double(inter_grid.ww)
+    
     ;;WRITE BEAM VARIABLES
     ncdf_varput,ncid,bn_varid,long(inputs.isource[0])
     ncdf_varput,ncid,ab_varid,double(inputs.ab)
