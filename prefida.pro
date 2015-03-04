@@ -791,7 +791,7 @@ PRO write_namelist,inputs
     if git_hash ne '' then begin
         printf,55,'!! FIDASIM git commit: ',git_hash
     endif else begin
-        printf,55,'!! FIDASIM version: 0.3.1 '
+        printf,55,'!! FIDASIM version: 0.4.0 '
     endelse
 
     printf,55,'!! Comment: '+inputs.comment
@@ -1207,9 +1207,10 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     zeff_varid=ncdf_vardef(ncid,'zeff',rhoid,/double)
     omega_varid=ncdf_vardef(ncid,'omega',rhoid,/double)
     br_varid=ncdf_vardef(ncid,'br',twodim,/double)
-    bphi_varid=ncdf_vardef(ncid,'bphi',twodim,/double)
+    bt_varid=ncdf_vardef(ncid,'bt',twodim,/double)
     bw_varid=ncdf_vardef(ncid,'bw',twodim,/double)
     er_varid=ncdf_vardef(ncid,'er',twodim,/double)
+    et_varid=ncdf_vardef(ncid,'et',twodim,/double)
     ew_varid=ncdf_vardef(ncid,'ew',twodim,/double)
     rho2d_varid=ncdf_vardef(ncid,'rho2d',twodim,/double)
 
@@ -1271,7 +1272,7 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ncdf_varput,ncid,w2d_varid,double(inter_grid.w2d)
     ncdf_varput,ncid,rr_varid,double(inter_grid.rr)
     ncdf_varput,ncid,ww_varid,double(inter_grid.ww)
-    
+
     ;;WRITE BEAM VARIABLES
     ncdf_varput,ncid,bn_varid,long(inputs.isource[0])
     ncdf_varput,ncid,ab_varid,double(inputs.ab)
@@ -1308,9 +1309,10 @@ PRO prefida,input_file,input_str=input_str,plot=plot,save=save
     ncdf_varput,ncid,omega_varid, double(plasma.omega)
     ncdf_varput,ncid,zeff_varid, double(plasma.zeff)
     ncdf_varput,ncid,br_varid, double(equil.br)
-    ncdf_varput,ncid,bphi_varid, double(equil.bphi)
+    ncdf_varput,ncid,bt_varid, double(equil.bt)
     ncdf_varput,ncid,bw_varid, double(equil.bw)
     ncdf_varput,ncid,er_varid, double(equil.er)
+    ncdf_varput,ncid,et_varid, double(equil.et)
     ncdf_varput,ncid,ew_varid, double(equil.ew)
     ncdf_varput,ncid,rho_varid, double(plasma.rho)
     ncdf_varput,ncid,rho2d_varid, double(equil.rho2d)

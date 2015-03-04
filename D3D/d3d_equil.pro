@@ -52,20 +52,20 @@ FUNCTION d3d_equil,inputs,grid
 	ez1=-(shift(epot,0,-1) - shift(epot,0,1))/(g.z[2]-g.z[0])
 
 	;; Interpolate cylindrical fields onto (r,w) mesh
-	b_r=dblarr(grid.nr,grid.nw) & b_phi=b_r & b_w=b_r
-	e_r=dblarr(grid.nr,grid.nw) & e_w=e_r
+	b_r=dblarr(grid.nr,grid.nw) & b_t=b_r & b_w=b_r
+	e_r=dblarr(grid.nr,grid.nw) & e_t=e_r & e_w=e_r
 
 	for i=0L,grid.nr-1 do for j=0L,grid.nw-1 do begin
 		rgrid=(.01*grid.r2d[i,j] - g.r[0])/(g.r[1]-g.r[0]) ; in grid units
 		zgrid=(.01*grid.w2d[i,j] - g.z[0])/(g.z[1]-g.z[0])    ; WWH 3/31/07
 		b_r[i,j]  =interpolate(br,[rgrid],[zgrid])
 		e_r[i,j]  =interpolate(er,[rgrid],[zgrid])
-		b_phi[i,j]=interpolate(bphi,[rgrid],[zgrid])
+		b_t[i,j]=interpolate(bphi,[rgrid],[zgrid])
 		e_w[i,j]  =interpolate(ez1,[rgrid],[zgrid])
 		b_w[i,j]  =interpolate(bz1,[rgrid],[zgrid])
 	endfor
 
-	equil={g:g,rho2d:rhogrid,br:b_r,bphi:b_phi,bw:b_w,er:e_r,ew:e_w,err:0}
+	equil={g:g,rho2d:rhogrid,br:b_r,bt:b_t,bw:b_w,er:e_r,et:e_t,ew:e_w,err:0}
 	GET_OUT:
 	return,equil
 END
