@@ -10,6 +10,7 @@ TEST/D3D/*_weights.cdf
 *.e*
 *.mod
 fidasim
+fidasim_debug
 RESULTS/
 *.job*
 sge*
