@@ -72,40 +72,34 @@ PRO make_interpolating_grid,inputs,inter_grid,err
                   nr:inputs.nr,nw:inputs.nw,ng:long(inputs.nw*inputs.nr),err:0}
 END
 
-PRO xyz_to_uvw,ALPHA,BETA,x,y,z, u,v,w, origin = origin
+FUNCTION Ru,u,theta
+    if n_elements(size(u,/dim)) eq 2 then u = transpose(u)
+    uxu = transpose(u)##u
+    ux = dblarr(3,3)
+    ux[0,0] = 0.0  & ux[1,0] =-u[2] & ux[2,0] = u[1]
+    ux[0,1] = u[2] & ux[1,1] = 0.0  & ux[2,1] =-u[0]
+    ux[0,2] =-u[1] & ux[1,2] = u[0] & ux[2,2] = 0.0
+
+    R = cos(theta)*IDENTITY(3,/double) + sin(theta)*ux + (1.0-cos(theta))*uxu
+
+    return, R
+END
+
+FUNCTION Rz,theta
+    return, Ru([0.0,0.0,1.0],theta)
+END
+
+PRO xyz_to_uvw,ALPHA,BETA,x,y,z,u,v,w, origin = origin
 
     if not keyword_set(origin) then origin=[0.0,0.0,0.0]
-    zero=0.d0
-    one=1.d0
+
     xyz = [[x],[y],[z]]
 
-    j = [[0.d0],[1.d0],[0.d0]]
+    jhat = [[0.d0],[1.d0],[0.d0]]
 
-    ;; IDL is col,row
-    ;;Rz: axis rotation counter clockwise around +z axis
-    Rz = dblarr(3,3)
-    Rz[0,0] = cos(ALPHA) & Rz[1,0] =-sin(ALPHA) & Rz[2,0] = zero
-    Rz[0,1] = sin(ALPHA) & Rz[1,1] = cos(ALPHA) & Rz[2,1] = zero
-    Rz[0,2] = zero       & Rz[1,2] = zero       & Rz[2,2] = one
+    R = Ru(Rz(ALPHA)##jhat,BETA)##Rz(ALPHA)
 
-    xyz_p = Rz##xyz
-    jp = Rz##j
-
-    ;;Rotate by Beta about jp
-    jpx = dblarr(3,3)
-    jpxjp = dblarr(3,3)
-
-    jpx[0,0] = zero  & jpx[1,0] =-jp[2] & jpx[2,0] = jp[1]
-    jpx[0,1] = jp[2] & jpx[1,1] = zero  & jpx[2,1] =-jp[0]
-    jpx[0,2] =-jp[1] & jpx[1,2] = jp[0] & jpx[2,2] = zero
-
-    jpxjp[0,0] = jp[0]^2.0   & jpxjp[1,0] = jp[0]*jp[1] & jpxjp[2,0] = jp[0]*jp[2]
-    jpxjp[0,1] = jp[0]*jp[1] & jpxjp[1,1] = jp[1]^2.0   & jpxjp[2,1] = jp[1]*jp[2]
-    jpxjp[0,2] = jp[0]*jp[2] & jpxjp[1,2] = jp[1]*jp[2] & jpxjp[2,2] = jp[2]^2.0
-
-    Rjp = cos(BETA)*IDENTITY(3,/double) + sin(BETA)*jpx + (1.0-cos(BETA))*jpxjp
-
-    uvw = Rjp##xyz_p
+    uvw = R##xyz
 
     u = uvw[*,0] + origin[0]
     v = uvw[*,1] + origin[1]
@@ -116,41 +110,16 @@ END
 PRO uvw_to_xyz,ALPHA,BETA,u,v,w,x,y,z,origin=origin
 
     if not keyword_set(origin) then origin=[0.0,0.0,0.0]
-    zero=0.d0
-    one=1.d0
 
     uvw = [[u-origin[0]],[v-origin[1]],[w-origin[2]]]
 
-    k = [[0.d0],[0.d0],[1.d0]]
+    jhat = [[0.d0],[1.d0],[0.d0]]
 
-    ;; IDL is col,row
-    Ry = dblarr(3,3)
-    Ry[0,0] = cos(-BETA) & Ry[1,0] = zero & Ry[2,0] = sin(-BETA)
-    Ry[0,1] = zero       & Ry[1,1] = one  & Ry[2,1] = zero
-    Ry[0,2] =-sin(-BETA) & Ry[1,2] = zero & Ry[2,2] = cos(-BETA)
+    R = transpose(Ru(Rz(ALPHA)##jhat,BETA)##Rz(ALPHA))
 
-    uvw_p = Ry##uvw
-    kp = Ry##k
+    xyz = R##uvw
 
-    ;;Rotate by alpha about kp
-    kpx = dblarr(3,3)
-    kpxkp = dblarr(3,3)
-
-    kpx[0,0] = zero  & kpx[1,0] =-kp[2] & kpx[2,0] = kp[1]
-    kpx[0,1] = kp[2] & kpx[1,1] = zero  & kpx[2,1] =-kp[0]
-    kpx[0,2] =-kp[1] & kpx[1,2] = kp[0] & kpx[2,2] = zero
-
-    kpxkp[0,0] = kp[0]^2.0   & kpxkp[1,0] = kp[0]*kp[1] & kpxkp[2,0] = kp[0]*kp[2]
-    kpxkp[0,1] = kp[0]*kp[1] & kpxkp[1,1] = kp[1]^2.0   & kpxkp[2,1] = kp[1]*kp[2]
-    kpxkp[0,2] = kp[0]*kp[2] & kpxkp[1,2] = kp[1]*kp[2] & kpxkp[2,2] = kp[2]^2.0
-
-    Rkp = cos(-ALPHA)*IDENTITY(3,/double) + sin(-ALPHA)*kpx + (1.0-cos(-ALPHA))*kpxkp
-
-    xyz = Rkp##uvw_p
-
-    x = xyz[*,0]
-    y = xyz[*,1]
-    z = xyz[*,2]
+    x = xyz[*,0] & y = xyz[*,1] &  z = xyz[*,2]
 
 END
 

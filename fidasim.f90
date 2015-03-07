@@ -58,11 +58,15 @@ module application
 
   type beam_grid_type
     real(double), dimension(3) :: origin !! origin
+    real(double), dimension(3) :: center !! Center of grid
     real(double)               :: alpha  !! rotation about z
     real(double)               :: beta   !! rotation about y/tilt
     real(double), dimension(3) :: dr     !! dx, dy, dz
+    real(double), dimension(3) :: lwh    !! Grid length(x),width(y),height(z)
     real(double)               :: drmin  !! min(dx,dy,dz)
     real(double)               :: dv     !! volume of cells
+    real(double)               :: volume !! Grid volume
+    real(double)
     integer(long)              :: nx     !! Nr. of cells in x direction
     integer(long)              :: ny     !! Nr. of cells in y direction
     integer(long)              :: nz     !! Nr. of cells in z direction
@@ -136,6 +140,8 @@ module application
     real(double)                 :: einj    !! NBI voltage  [kV]
     real(double)                 :: pinj    !! NBI power    [MW]
     real(double)                 :: vinj    !! NBI velocity [cm/s]
+    real(double)                 :: alpha   !! Z rotation not same as beam_grid%alpha
+    real(double)                 :: beta    !! Tilt rotation not same as beam_grid%beta
   end type nbi_type
 
   type tables_type
@@ -263,6 +269,9 @@ module application
   type(result_type)     :: result
 
 contains
+
+  !****************************************************************************
+  !*******************************I/O Routines*********************************
   !****************************************************************************
   subroutine check(stat)
     use netcdf
@@ -274,31 +283,6 @@ contains
     end if
   end subroutine check
 
-  !****************************************************************************
-  subroutine calc_perp_vectors(b,a,c)
-    !!Returns normalized vectors that are perpendicular to b
-    real(double), dimension(3),intent(in)  :: b
-    real(double), dimension(3),intent(out) :: a,c
-    real(double), dimension(3)             :: bnorm
-
-    bnorm=b/sqrt(dot_product(b,b))
-
-    if (abs(bnorm(3)).eq.1) then
-      a=(/1.d0,0.d0,0.d0/)
-      c=(/0.d0,1.d0,0.d0/)
-    else
-      if (bnorm(3).eq.0.) then
-        a=(/0.d0,0.d0,1.d0/)
-        c=(/bnorm(2),-bnorm(1), 0.d0/)/sqrt(bnorm(1)**2+bnorm(2)**2)
-      else
-        a=(/bnorm(2),-bnorm(1),0.d0/)/sqrt(bnorm(1)**2+bnorm(2)**2)
-        c=(/ a(2) , -a(1) , (a(1)*bnorm(2)-a(2)*bnorm(1))/bnorm(3) /)
-        c=c/sqrt(dot_product(c,c))
-      endif
-    endif
-  end subroutine calc_perp_vectors
-
-  !****************************************************************************
   subroutine read_inputs
     character(120) :: runid,result_dir
     integer       :: calc_spec,calc_npa,calc_birth,calc_fida_wght
@@ -362,7 +346,6 @@ contains
 
   end subroutine read_inputs
 
-  !****************************************************************************
   subroutine read_beam_grid
     use netcdf
     character(120)  :: filename
@@ -410,6 +393,16 @@ contains
     beam_grid%dr(2) = abs(beam_grid%yc(2)-beam_grid%yc(1))
     beam_grid%dr(3) = abs(beam_grid%zc(2)-beam_grid%zc(1))
 
+    beam_grid%lwh(1) = abs(beam_grid%xc(beam_grid%nx) - beam_grid%xc(1)) + beam_grid%dr(1)
+    beam_grid%lwh(2) = abs(beam_grid%yc(beam_grid%ny) - beam_grid%yc(1)) + beam_grid%dr(2)
+    beam_grid%lwh(3) = abs(beam_grid%zc(beam_grid%nz) - beam_grid%zc(1)) + beam_grid%dr(3)
+
+    beam_grid%volume = beam_grid%lwh(1)*beam_grid%lwh(3)*beam_grid%lwh(3)
+
+    beam_grid%center(1) = (minval(beam_grid%xc) - 0.5*beam_grid%dr(1)) + 0.5*beam_grid%lwh(1)
+    beam_grid%center(2) = (minval(beam_grid%yc) - 0.5*beam_grid%dr(2)) + 0.5*beam_grid%lwh(2)
+    beam_grid%center(3) = (minval(beam_grid%zc) - 0.5*beam_grid%dr(3)) + 0.5*beam_grid%lwh(3)
+
     beam_grid%drmin  = minval(beam_grid%dr)
     beam_grid%dv     = beam_grid%dr(1)*beam_grid%dr(2)*beam_grid%dr(3)
     beam_grid%ntrack = beam_grid%nx+beam_grid%ny+beam_grid%nz
@@ -421,7 +414,6 @@ contains
     print*,'dV: ',real(beam_grid%dv,float),'[cm^-3]'
   end subroutine read_beam_grid
 
-  !****************************************************************************
   subroutine read_inter_grid
     use netcdf
     character(120)  :: filename
@@ -467,13 +459,13 @@ contains
     print*,'dA: ',real(inter_grid%da,float),'[cm^-3]'
   end subroutine read_inter_grid
 
-  !****************************************************************************
   subroutine read_beam
     use netcdf
     character(120)  :: filename
     integer         :: ncid,ab_varid,divy_varid,divz_varid,focy_varid,focz_varid,bn_varid
     integer         :: einj_varid,pinj_varid,sm_varid,bwra_varid,bwza_varid
     integer         :: xyzsrc_varid,xyzpos_varid
+    real(double)    :: dis
 
     filename=trim(adjustl(inputs%result_dir))//"/"//trim(adjustl(inputs%runid))//"_inputs.cdf"
     print*,'---- loading beam ----'
@@ -516,13 +508,16 @@ contains
     nbi%vinj=sqrt(2.d0*nbi%einj*1.d3 &
             *e0/(inputs%ab*mass_u))*1.d2 !! [cm/s]
 
+    dis = sqrt(sum(nbi%xyz_pos-nbi%xyz_src)**2.0))
+    nbi%beta = asin((nbi%xyz_src(3)-nbi%xyz_pos(3))/dis)
+    nbi%alpha = atan2(nbi%xyz_pos(2)-nbi%xyz_src(2),nbi%xyz_pos(1)-nbi%xyz_src(1))
+
     print*,'NBI #',nbi%number+1
     print*,'NBI power   :', real(nbi%pinj,float)
     print*,'NBI voltage :', real(nbi%einj,float)
 
   end subroutine read_beam
 
-  !****************************************************************************
   subroutine read_chords
     use netcdf
     character(120)  :: filename
@@ -601,7 +596,6 @@ contains
 
   end subroutine read_chords
 
-  !***************************************************************************!
   subroutine read_profiles
     use netcdf
     character(120):: filename
@@ -661,7 +655,6 @@ contains
 
   end subroutine read_profiles
 
-  !****************************************************************************
   subroutine read_equilibrium
     character(120)  :: filename
     integer       :: rho2d_var,br_var,bt_var,bw_var,er_var,et_var,ew_var
@@ -703,7 +696,7 @@ contains
     call check( nf90_close(ncid) )
 
   end subroutine read_equilibrium
-  !****************************************************************************
+
   subroutine read_tables
     character(120)  :: filename
     integer         :: n,m !! initial/final state
@@ -808,8 +801,6 @@ contains
 
   end subroutine read_tables
 
-  !****************************************************************************
-  !-------------------FASTION DISTRIBUTION FUNCTION ----------------------
   subroutine read_fbm
     use netcdf
     character(120)  :: filename
@@ -1135,51 +1126,378 @@ contains
     call check( nf90_close(ncid) )
    end subroutine read_neutrals
 
+
   !*****************************************************************************
-  !------------random number generator-----------------------------------------
+  !*****************************Geometry Routines*******************************
   !*****************************************************************************
-  function ran()
-    !!uniform random number generator from NUMERICAL RECEPIES
-    real(double)           :: ran
-    !$OMP CRITICAL(random)
-    ran_ix=ieor(ran_ix,ishft(ran_ix,13)) !Marsaglia shift sequence
-    ran_ix=ieor(ran_ix,ishft(ran_ix,-17))
-    ran_ix=ieor(ran_ix,ishft(ran_ix,5))
-    ran_k=ran_iy/ran_IQ !Park-Miller sequence by Schrage’s method,
-    ran_iy=ran_IA*(ran_iy-ran_k*ran_IQ)-ran_IR*ran_k
-    if(ran_iy.lt.0) ran_iy=ran_iy+ran_IM
-    ran=ran_am*ior(iand(ran_IM,ieor(ran_ix,ran_iy)),1) !Combine the generators
-    !$OMP END CRITICAL(random)
-  end function ran
-  subroutine randn(randomn)
-    !!Box Mueller Method to calculate normal distribution
-    real(double),dimension(:),intent(inout):: randomn
-    integer                                :: nran, i
-    real(double)                           :: x1,x2,w
-    randomn=0.d0 ;  nran=size(randomn) ; i=1
-    do while (i.le.nran)
-       w=1.d0
-       do while (w.ge.1.d0)
-          x1=2.d0*ran()-1.d0
-          x2=2.d0*ran()-1.d0
-          w=x1*x1+x2*x2
-       enddo
-       w=sqrt((-2.d0*log(w))/w)
-       randomn(i)=x1*w
-       i=i+1
-       if(i.gt.nran)exit
-       randomn(i)=x2*w
-       i=i+1
+  subroutine Ru(u,theta,R)
+    real(double), dimension(3), intent(in)    :: u
+    real(double), intent(in)                  :: theta
+    real(double), dimension(3,3), intent(out) :: R
+    real(double), dimension(3,3)              :: I,ux,uxu
+
+    ! Identity matrix
+    I(1,1) = 1.0 ; I(1,2) = 0.0 ; I(1,3) = 0.0
+    I(2,1) = 0.0 ; I(2,2) = 1.0 ; I(2,3) = 0.0
+    I(3,1) = 0.0 ; I(3,2) = 0.0 ; I(3,3) = 1.0
+
+    ux(1,1) = 0.0  ; ux(1,2) =-u(3) ; ux(1,3) = u(2)
+    ux(2,1) = u(3) ; ux(2,2) = 0.0  ; ux(2,3) =-u(1)
+    ux(3,1) =-u(2) ; ux(3,2) = u(1) ; ux(3,3) = 0.0
+
+    uxu(1,1) = u(1)**2.0  ; uxu(1,2) = u(1)*u(2)  ; uxu(1,3) = u(1)*u(3)
+    uxu(2,1) = u(1)*u(2)  ; uxu(2,2) = u(2)**2.0  ; uxu(2,3) = u(2)*u(3)
+    uxu(3,1) = u(1)*u(3)  ; uxu(3,2) = u(2)*u(3)  ; uxu(3,3) = u(3)**2.0
+
+    R(:,:) = cos(theta)*I(:,:) + sin(theta)*ux(:,:) + (1.0-cos(theta))*uxu(:,:)
+  end subroutine Ru
+
+  subroutine Rz(theta,R)
+    real(double), intent(in)                  :: theta
+    real(double), dimension(3,3), intent(out) :: R
+    real(double), dimension(3)                :: khat
+    khat = (/0.0,0.0,1.0/)
+    call Ru(khat,theta,R)
+  end subroutine Rz
+
+  subroutine xyz_to_uvw(xyz,uvw,origin_in,alpha_in,beta_in)
+    real(double), dimension(3), intent(in)             :: xyz
+    real(double), dimension(3), intent(out)            :: uvw
+    real(double), dimension(3), intent(in), optional   :: origin_in
+    real(double), intent(in), optional                 :: alpha_in
+    real(double), intent(in), optional                 :: beta_in
+    real(double), dimension(3)                         :: origin,jhat,jhat_p
+    real(double), dimension(3,3)                       :: R_u,R_z,R
+    real(double)                                       :: alpha,beta
+
+    if(present(origin_in)) then
+      origin(:) = origin_in(:)
+    else
+      origin(:) = (/0.0,0.0,0.0/)
+    endif
+
+    if(present(alpha_in)) then
+      alpha = alpha_in
+    else
+      alpha = beam_grid%alpha
+    endif
+
+    if(present(beta_in)) then
+      beta = beta_in
+    else
+      beta = beam_grid%beta
+    endif
+
+    jhat = (/0.0,1.0,0.0/)
+
+    call Rz(alpha,R_z)
+    jhat_p = matmul(R_z,jhat)
+
+    call Ru(jhat_p,beta,R_u)
+    R = matmul(R_u(,R_z)
+
+    uvw = matmul(R,xyz()
+    uvw = uvw + origin
+
+  end subroutine xyz_to_uvw
+
+  subroutine uvw_to_xyz(uvw,xyz,origin_in,alpha_in,beta_in)
+    real(double), dimension(3), intent(in)             :: uvw
+    real(double), dimension(3), intent(out)            :: xyz
+    real(double), dimension(3), intent(in), optional   :: origin_in
+    real(double), intent(in), optional                 :: alpha_in
+    real(double), intent(in), optional                 :: beta_in
+    real(double), dimension(3)                         :: origin, jhat,jhat_p,uvw_p
+    real(double), dimension(3,3)                       :: R,R_z,R_u
+    real(double)                                       :: alpha,beta
+
+    if(present(origin_in)) then
+      origin = origin_in(:)
+    else
+      origin = beam_grid%origin
+    endif
+
+    if(present(alpha_in)) then
+      alpha = alpha_in
+    else
+      alpha = beam_grid%alpha
+    endif
+
+    if(present(beta_in)) then
+      beta = beta_in
+    else
+      beta = beam_grid%beta
+    endif
+
+    uvw_p = uvw - origin
+
+    jhat = (/0.0,1.0,0.0/)
+
+    call Rz(alpha,R_z))
+    jhat_p = matmul(R_z,jhat)
+
+    call Ru(jhat_p,beta,R_u)
+    R = transpose(matmul(R_u,R_z))
+
+    xyz = matmul(R,uvw_p)
+
+  end subroutine uvw_to_xyz
+
+  subroutine chord_coor(xyz_i,xyz_f,origin,pos_in,pos_out)
+    real(double), dimension(3)                    :: pos_in,pos_out
+    real(double), dimension(3)                    :: xyz_i,xyz_f,origin
+    real(double)                                  :: phi,theta,xp,yp,zp
+
+    phi=atan2((xyz_f(2)-xyz_i(2)),(xyz_f(1)-xyz_i(1)))
+    theta= -1*atan2(sqrt((xyz_f(1)-xyz_i(1))**2.0 + (xyz_f(2)-xyz_i(2))**2.0),(xyz_f(3)-xyz_i(3)))
+
+    xp=(pos_in(1)-origin(1))*cos(phi)+(pos_in(2)-origin(2))*sin(phi)
+    yp=-(pos_in(1)-origin(1))*sin(phi)+(pos_in(2)-origin(2))*cos(phi)
+    zp=pos_in(3)-origin(3)
+    pos_out(1)=xp*cos(theta)+zp*sin(theta)
+    pos_out(2)=yp
+    pos_out(3)=-xp*sin(theta)+zp*cos(theta)
+  end subroutine chord_coor
+
+  subroutine inv_chord_coor(xyz_i,xyz_f,origin,pos_in,pos_out)
+    real(double), dimension(3)                    :: pos_in,pos_out
+    real(double), dimension(3)                    :: xyz_i,xyz_f,origin
+    real(double)                                  :: phi,theta
+
+    phi=atan2((xyz_f(2)-xyz_i(2)),(xyz_f(1)-xyz_i(1)))
+    theta= -1*atan2(sqrt((xyz_f(1)-xyz_i(1))**2.0 + (xyz_f(2)-xyz_i(2))**2.0),(xyz_f(3)-xyz_i(3)))
+    pos_out(1)=origin(1)+pos_in(1)*cos(phi)*cos(theta) - pos_in(3)*cos(phi)*sin(theta) - pos_in(2)*sin(phi)
+    pos_out(2)=origin(2)+pos_in(2)*cos(phi) + pos_in(1)*cos(theta)*sin(phi) - pos_in(3)*sin(phi)*sin(theta)
+    pos_out(3)=origin(3)+pos_in(3)*cos(theta) + pos_in(1)*sin(theta)
+
+  end subroutine inv_chord_coor
+
+  subroutine grid_intersect(r0,v0,length,r_enter,r_exit)
+    real(double), dimension(3), intent(in)  :: r0
+    real(double), dimension(3), intent(in)  :: v0
+    real(double), dimension(3), intent(out) :: r_enter
+    real(double), dimension(3), intent(out) :: r_exit
+    real(double), intent(out)               :: length
+    real(double), dimension(3,6)            :: ipnts
+    integer,      dimension(6)              :: side_inter
+    integer,      dimension(2)              :: ind
+    integer,                                :: i,j
+    real(double)                            :: dis1,dis2
+
+    do i=1,6
+      j = int(ceiling(i/2.0))
+      if j.eq.1 ind = (/2,3/)
+      if j.eq.2 ind = (/1,3/)
+      if j.eq.3 ind = (/1,2/)
+      if (abs(v0[j]).gt.0.0) then
+        ipnts(:,i) = r0 + v0*( ( (beam_grid%center(j) + &
+                     (mod(i,2) - 0.5)*beam_grid%lwh(j)) - r0(j))/v0(j) )
+        if ((abs(ipnts(ind(1),i) - beam_grid%center(ind(1))).le.(0.5*beam_grid%lwh(ind(1)))).and. &
+            (abs(ipnts(ind(2),i) - beam_grid%center(ind(2))).le.(0.5*beam_grid%lwh(ind(2))))) then
+          side_inter(i) = 1
+        endif
+      endif
     enddo
-  end subroutine randn
-  subroutine randu(randomu)
-    real(double), dimension(:), intent(inout):: randomu
-    integer                                  :: i
-    randomu=0.d0
-    do i=1,size(randomu)
-       randomu(i)=ran()
+
+    length = 0.0
+    if (sum(side_inter).lt.2) then
+      r_enter = r0
+      r_exit  = r0
+    else
+      i=1
+      do while (i.le.6)
+        if(side_inter(i).eq.1) exit
+        i=i+1
+      enddo
+      j=i
+      do while (sqrt(sum((ipnts(:,i)-ipnts(:,j)**2.0))).le.0.001)
+        do while (j.le.6)
+          j=j+1
+          if(side_inter(j).eq.1) exit
+        enddo
+      enddo
+      dis1 = sqrt(sum((ipnts(:,i)-r0)**2.0))
+      dis2 = sqrt(sum((ipnts(:,j)-r0)**2.0))
+      if (dis1.lt.dis2) then
+        r_enter = ipnts(:,i)
+        r_exit  = ipnts(:,j)
+      else
+        r_enter = ipnts(:,j)
+        r_exit  = ipnts(:,i)
+      endif
+      length = abs(dis1-dis2)
+    endif
+
+  end subroutine grid_intersect
+
+  subroutine get_index(pos,ac)
+    real(double),  dimension(3), intent(in)  :: pos
+    integer(long), dimension(3), intent(out) :: ac
+    real(double),  dimension(3)              :: mini
+    integer(long), dimension(3)              :: maxind
+    integer,                                 :: i
+
+    maxind(1) = beam_grid%nx
+    maxind(2) = beam_grid%ny
+    maxind(3) = beam_grid%nz
+
+    mini(1) = minval(beam_grid%xc) - 0.5*beam_grid%dr(1)
+    mini(2) = minval(beam_grid%yc) - 0.5*beam_grid%dr(2)
+    mini(3) = minval(beam_grid%zc) - 0.5*beam_grid%dr(3)
+
+    do i=1,3
+      ac(i) = ceiling((pos(i)-mini(i))/beam_grid%dr(i))
+      if (ac(i).gt.maxind(i)) ac(i)=maxind(i)
+      if (ac(i).lt.1) ac(i)=1
     enddo
-  end subroutine randu
+
+  end subroutine get_index
+
+  subroutine track3D(rin, vin, tcell, icell, pcell, ncell)
+    !!track computes the path of a neutral through a the beam grid
+    real(double), dimension(:)  , intent(in)   :: rin  ! initial position
+    real(double), dimension(:)  , intent(in)   :: vin  ! velocitiy
+    integer                     , intent(out)  :: ncell! number of cells
+    real(double), dimension(:)  , intent(out)  :: tcell! time per cell
+    integer,dimension(:,:), intent(out)        :: icell! cell indices
+    real(double), dimension(:,:), intent(out)  :: pcell! mean position in cell
+    integer                    :: cc,i   !!step number along the track
+    integer,dimension(3)       :: ac     !!indices of the cells
+    real(double), dimension(3) :: dt_arr !!time to cell boundary
+    real(double), dimension(3) :: vn     !!velocitiy that can be changed
+    real(double), dimension(3) :: ri     !!position of ray
+    real(double), dimension(3) :: sgn    !!sign
+    integer,      dimension(3) :: gdims  !!grid dims
+    integer,      dimension(1) :: minpos
+
+    tcell=0.d0 ; icell=0 ;  ; pcell=0.d0 ; ncell=0
+    vn(:)=vin(:) ;  ri(:)=rin(:) ; sgn=0
+
+    gdims(1) = beam_grid%nx
+    gdims(2) = beam_grid%ny
+    gdims(3) = beam_grid%nz
+
+    !! define actual cell
+    call get_index(ri,ac)
+
+    do i=1,3
+      if (vn(i).gt.0.0) sgn(i) = 1
+      if (vn(i).lt.0.0) sgn(i) =-1
+      if (vn(i).eq.0.0) vn(i)  = 1.0d-30
+    enddo
+
+    cc=0
+    do i=1,beam_grid%ntrack
+      dt_arr(1) = ( (beam_grid%xc(ac(1)) + 0.5*sgn(1)*beam_grid%dr(1)) - ri(1))/vn(1)
+      dt_arr(2) = ( (beam_grid%yc(ac(2)) + 0.5*sgn(2)*beam_grid%dr(2)) - ri(2))/vn(2)
+      dt_arr(3) = ( (beam_grid%zc(ac(3)) + 0.5*sgn(3)*beam_grid%dr(3)) - ri(3))/vn(3)
+      minpos = minloc(dt_arr)
+      pcell(:,cc) = ri + 0.5*dt_arr(minpos(1))*vn !! path midpoint in cell
+      ri = ri + dt_arr(minpos(1))*vn
+      tcell(cc) = dt_arr(minpos(1))
+      icell(:,cc) = ac
+      ac(minpos(1)) = ac(minpos(1)) + sgn(minpos(1))
+      cc = cc+1
+      if (ac(minpos(1)).gt.gdims(minpos(1))) exit
+      if (ac(minpos(1)).lt.1) exit
+    enddo
+    ncell = cc
+  end subroutine track3D
+
+  subroutine hit_npa_detector(pos,vel,det)
+    integer                                       :: i,det,cnt
+    real(double), dimension(3)                    :: pos,vel,xyz_i,xyz_f
+    real(double), dimension(3)                    :: rpos,rvel
+    real(double)                                  :: ra,rd,xa,ya,xd,yd
+
+    det=0
+    cnt=0
+    loop_over_chan: do i=1,chords%nchan
+      !!only do npa channels
+      if(chords%chan_id(i).ne.1) cycle loop_over_chan
+      cnt=cnt+1
+      !!transform to chord coordinates
+      xyz_i(1)=chords%xyzlens(i,1)
+      xyz_i(2)=chords%xyzlens(i,2)
+      xyz_i(3)=chords%xyzlens(i,3)
+      xyz_f(1)=chords%xyzlos(i,1)
+      xyz_f(2)=chords%xyzlos(i,2)
+      xyz_f(3)=chords%xyzlos(i,3)
+
+      call chord_coor(xyz_i,xyz_f,xyz_i,pos,rpos)
+      call chord_coor(xyz_i,xyz_f,xyz_i*0.0,vel,rvel)
+
+      !!if a neutral particle is moving in the opposite direction it will not hit detector
+      if(rvel(3).ge.0) cycle loop_over_chan
+      xa=rpos(1)+rvel(1)*(-rpos(3)/rvel(3))
+      ya=rpos(2)+rvel(2)*(-rpos(3)/rvel(3))
+      ra=sqrt(xa**2.0 + ya**2.0)
+      xd=rpos(1)+rvel(1)*((-chords%h(i)-rpos(3))/rvel(3))
+      yd=rpos(2)+rvel(2)*((-chords%h(i)-rpos(3))/rvel(3))
+      rd=sqrt(xd**2.0 + yd**2.0)
+
+      !!if a neutral particle pass through both the aperture and detector then it count it
+      if( rd.le.chords%rd(i).and.ra.le.chords%ra(i) ) then
+        det=cnt
+        exit loop_over_chan
+      endif
+    enddo loop_over_chan
+
+  end subroutine hit_npa_detector
+
+  !*****************************************************************************
+  !*************************Profiles and Fields Routines************************
+  !*****************************************************************************
+  subroutine calc_perp_vectors(b,a,c)
+    !!Returns normalized vectors that are perpendicular to b
+    real(double), dimension(3),intent(in)  :: b
+    real(double), dimension(3),intent(out) :: a,c
+    real(double), dimension(3)             :: bnorm
+
+    bnorm=b/sqrt(dot_product(b,b))
+
+    if (abs(bnorm(3)).eq.1) then
+      a=(/1.d0,0.d0,0.d0/)
+      c=(/0.d0,1.d0,0.d0/)
+    else
+      if (bnorm(3).eq.0.) then
+        a=(/0.d0,0.d0,1.d0/)
+        c=(/bnorm(2),-bnorm(1), 0.d0/)/sqrt(bnorm(1)**2+bnorm(2)**2)
+      else
+        a=(/bnorm(2),-bnorm(1),0.d0/)/sqrt(bnorm(1)**2+bnorm(2)**2)
+        c=(/ a(2) , -a(1) , (a(1)*bnorm(2)-a(2)*bnorm(1))/bnorm(3) /)
+        c=c/sqrt(dot_product(c,c))
+      endif
+    endif
+  end subroutine calc_perp_vectors
+
+  subroutine get_profiles(xyz,ti,te,dene,deni,denp,vrot)
+
+  end subroutine get_profiles
+
+  !*****************************************************************************
+  !**************************Atomic Physics Routines****************************
+  !*****************************************************************************
+  subroutine table_interp(coef_matrix,deb,dti,ebi,tii,eb,ti,interp_out)
+    !! bilinear interpolation of the effective rate coefficient tables !!
+    real(double),dimension(:,:,:,:), intent(in) :: coef_matrix ! (m,n,eb,ti)
+    real(double),                intent(in)     :: deb, dti ! eb and ti grid
+    integer,                    intent(in)      :: ebi, tii    ! lower indices
+    real(double),                intent(in)     :: eb, ti      ! desired values
+    real(double),dimension(nlevs+1,nlevs),intent(out) :: interp_out  ! output
+    real(double), dimension(nlevs+1,nlevs)      :: c00, c10, c01, c11, c0, c1
+    real(double)    :: eb0, ti0
+    eb0=(ebi-1)*deb
+    ti0=(tii-1)*dti
+    c00 = coef_matrix(:,:,ebi  ,tii  )
+    c10 = coef_matrix(:,:,ebi+1,tii  )
+    c01 = coef_matrix(:,:,ebi  ,tii+1)
+    c11 = coef_matrix(:,:,ebi+1,tii+1)
+    !linear interpolation between C00 and C10 to find C0, C01 and C11 to find C1
+    c0  = c00 + (c10 - c00) * (eb - eb0) / deb
+    c1  = c01 + (c11 - c01) * (eb - eb0) / deb
+    interp_out=( c0  + (c1  - c0) * (ti - ti0) / dti)
+  end subroutine table_interp
 
   subroutine neut_rates(denn,vi,vn,rates)
     !GET neutralization rate from tables
@@ -1203,194 +1521,6 @@ contains
     neut  = (c0 + (c1 - c0) * (eb - eb0) / tables%d_eb_neut)
     rates=matmul(neut(:,:),denn(:))*vrel
   end subroutine neut_rates
-
-
-  !****************************************************************************
-  !----------------mc_fastion------------------------------------------------
-  !****************************************************************************
-  subroutine mc_fastion(ac,ri,vi)
-    !!IN: ac,   OUT: ri,vi
-    !!mcbeam computes monte carlo velocity of fast ions from cell%fbm
-    integer,      dimension(3), intent(in) :: ac !ind of actual cell
-    real(double), dimension(3), intent(out):: vi !velocity [cm/s]
-    real(double), dimension(3), intent(out):: ri !starting position
-    real(double), dimension(3)             :: a,b,c ! vectors relative to b
-    real(double), dimension(3)             :: b_norm,vxB,r_gyro,rp,pc
-    real(double)                           :: eb ,ptch
-    integer                                :: ienergy, ipitch ,ii
-    real(double)                           :: vabs, phi, sinus
-    real(double)                           :: one_over_omega,b_abs
-    real(double), dimension(3)             :: randomu3
-    real(double), dimension(4)             :: randomu4
-    integer, dimension(1) :: minpos  !! dummy array to determine minloc
-
-    call randu(randomu3)
-    ri(1)=beam_grid%xx(ac(1))+ beam_grid%dr(1)*randomu3(1)
-    ri(2)=beam_grid%yy(ac(2))+ beam_grid%dr(2)*randomu3(2)
-    ri(3)=beam_grid%zz(ac(3))+ beam_grid%dr(3)*randomu3(3)
-
-    !! Assumes that magnetic field does not change appreciably over gyroradius
-    a=cell(ac(1),ac(2),ac(3))%plasma%a_norm(:)
-    b=cell(ac(1),ac(2),ac(3))%plasma%b_norm(:)
-    c=cell(ac(1),ac(2),ac(3))%plasma%c_norm(:)
-    b_abs=cell(ac(1),ac(2),ac(3))%plasma%b_abs
-    b_norm=cell(ac(1),ac(2),ac(3))%plasma%b_norm(:)
-    one_over_omega=inputs%ab*mass_u/(b_abs*e0)
-
-    !! Use rejection method to determine velocity vector
-    vi=0.d0
-    rejection_loop: do ii=1,10000
-       call randu(randomu4)
-       !! Pick a random energy, pitch, and gyro angle
-       eb   = fbm%emin + fbm%eran * randomu4(1)
-       ptch = fbm%pmin + fbm%pran * randomu4(2)
-       phi  = 2.d0*pi*randomu4(3)
-
-       !! Calculate gyroradius
-       vabs  = sqrt(eb/(v_to_E*inputs%ab))
-       sinus = sqrt(1.d0-ptch**2)
-       vi(:) = vabs * (sinus*cos(phi)*a + ptch*b + sinus*sin(phi)*c)
-       vxB(1)= (vi(2) * b_norm(3) - vi(3) * b_norm(2))
-       vxB(2)= (vi(3) * b_norm(1) - vi(1) * b_norm(3))
-       vxB(3)= (vi(1) * b_norm(2) - vi(2) * b_norm(1))
-       r_gyro(:)=vxB(:)*one_over_omega
-
-       !! Move a gyrorbit away and sample distribution there
-       rp(:)=ri(:)+r_gyro(:)
-       !! find new cell
-       minpos=minloc(abs(rp(1)-beam_grid%xxc))
-       pc(1)=minpos(1)
-       minpos=minloc(abs(rp(2)-beam_grid%yyc))
-       pc(2)=minpos(1)
-       minpos=minloc(abs(rp(3)-beam_grid%zzc))
-       pc(3)=minpos(1)
-       if(allocated(cell(pc(1),pc(2),pc(3))%fbm)) then
-         !! take point in FBM distribution closest to eb, ptch.
-         minpos=minloc(abs(eb   - fbm%energy))
-         ienergy= minpos(1)
-         minpos=minloc(abs(ptch - fbm%pitch ))
-         ipitch = minpos(1)
-         if((cell(pc(1),pc(2),pc(3))%fbm(ienergy,ipitch)).gt.randomu4(4))then
-            return
-         endif
-       endif
-       vi=0.d0
-    enddo rejection_loop
-
-    print*, 'rejection method found no solution!'
-    !print*, cell(ac(1),ac(2),ac(3))%fbm
-  end subroutine mc_fastion
-
-  !****************************************************************************
-  !----------------mc_halo------------------------------------------------
-  !****************************************************************************
-  subroutine mc_halo(ac,vhalo)
-    integer, dimension(3) , intent(in)          :: ac    !! index of actual cell
-    real(double),    dimension(3) , intent(out) :: vhalo !! velocity [cm/s]
-    real(double),    dimension(3)               :: randomn
-    call randn(randomn)
-    vhalo(:)=   cell(ac(1),ac(2),ac(3))%plasma%vrot(:) &
-         + sqrt(cell(ac(1),ac(2),ac(3))%plasma%ti      &
-         * 0.5/(v_to_E*inputs%ai)) &
-         * randomn(:) !![cm/s]
-  end subroutine mc_halo
-
-  !****************************************************************************
-  !----------------mc_nbi------------------------------------------------------
-  !****************************************************************************
-  subroutine rotate(uvw_vec,updown,xyz_vec)
-    real(double), dimension(3), intent(in) :: uvw_vec !! vector in uvw coords
-    integer             , intent(in)       :: updown  !! source has two plates
-    real(double), dimension(3), intent(out):: xyz_vec !! vector in xyz coords
-    real(double), dimension(3)             :: uvz_vec
-    !! rotate uvw vector in vertical dirction
-    if(updown.lt.0) uvz_vec(:)=matmul(nbi%Arot(:,:),uvw_vec(:))
-    if(updown.ge.0) uvz_vec(:)=matmul(nbi%Brot(:,:),uvw_vec(:))
-    !! rotate uvz_vec by phi_box onto xyz_coordinates
-    xyz_vec=matmul(nbi%Crot(:,:),uvz_vec(:))
-  end subroutine rotate
-  subroutine mc_nbi(vnbi,efrac,rnbi)
-    !!-- mc_nbi computes monte carlo velocity and initial start position of
-    !!-- NBI neutrals on the FIDASIM grid
-    integer             , intent(in)          :: efrac !! energy fraction
-    real(double), dimension(3), intent(out)   :: vnbi  !! velocity [cm/s]
-    real(double), dimension(3), intent(out), optional :: rnbi  !! postition
-    integer                      :: jj, updown
-    real(double), dimension(3)   :: uvw_pos    !! Start position on ion source
-    real(double), dimension(3)   :: xyz_pos    !! Start position on ion source
-    real(double), dimension(3)   :: uvw_ray    !! NBI veloicity in uvw coords
-    real(double), dimension(2)   :: randomu    !! uniform random numbers
-    real(double), dimension(2)   :: randomn    !! normal random numbers
-    integer                      :: nstep
-    !! ------------ Random start postion on ion source grid -------------- !!
-    call randu(randomu)
-    uvw_pos(1) =  0.d0
-    uvw_pos(2) =  nbi%dv * 2.d0*(randomu(1)-0.5d0)
-    uvw_pos(3) =  nbi%dw * 2.d0*(randomu(2)-0.5d0)
-    if(uvw_pos(3).gt.0)then
-       updown=1
-    else
-       updown=-1
-    endif
-    call randn(randomn)
-    uvw_ray(1)=-1.d0
-    uvw_ray(2)=uvw_ray(1)*(uvw_pos(2)/nbi%focy &
-         +tan(nbi%divay(efrac)*randomn(1)))
-    uvw_ray(3)=uvw_ray(1)*(uvw_pos(3)/nbi%focz &
-         +tan(nbi%divaz(efrac)*randomn(2)))
-    call rotate(uvw_ray,updown,vnbi(:))
-    vnbi(:)=vnbi(:)/sqrt(dot_product(vnbi(:),vnbi(:)))
-    call rotate(uvw_pos,updown,xyz_pos)
-    xyz_pos(:)=xyz_pos(:)+nbi%xyz_pos(:)
-    !! ----------- Determine start postition on FIDASIM grid --------- !!
-    if(present(rnbi)) then
-       nstep=anint(4000./beam_grid%dr(1))
-       nbi_track: do jj=1,nstep
-          xyz_pos(1) = xyz_pos(1) + beam_grid%dr(1) * vnbi(1)
-          xyz_pos(2) = xyz_pos(2) + beam_grid%dr(1) * vnbi(2)
-          xyz_pos(3) = xyz_pos(3) + beam_grid%dr(1) * vnbi(3)
-          if ( xyz_pos(1).gt.beam_grid%xx(1) .and. &
-               xyz_pos(1).lt.beam_grid%xx(beam_grid%nx)+beam_grid%dr(1).and. &
-               xyz_pos(2).gt.beam_grid%yy(1) .and. &
-               xyz_pos(2).lt.beam_grid%yy(beam_grid%ny)+beam_grid%dr(2).and. &
-               xyz_pos(3).gt.beam_grid%zz(1) .and. &
-               xyz_pos(3).lt.beam_grid%zz(beam_grid%nz)+beam_grid%dr(3)) then
-             exit nbi_track
-          endif
-       enddo nbi_track
-       if (jj.ge.nstep) then
-          !!print*, 'NBI marker outside of grid!'
-          nbi_outside=nbi_outside+1
-          rnbi(:)=(/-1,0,0/)
-          return
-       endif
-       rnbi(:)=xyz_pos(:)
-    endif
-    !! ---- Determine velocity of neutrals corrected by efrac ---- !!
-    vnbi(:) = vnbi(:)*nbi%vinj/sqrt(real(efrac))
-  end subroutine mc_nbi
-
-  subroutine table_interp(coef_matrix,deb,dti,ebi,tii,eb,ti,interp_out)
-    !! bilinear interpolation of the effective rate coefficient tables !!
-    real(double),dimension(:,:,:,:), intent(in) :: coef_matrix ! (m,n,eb,ti)
-    real(double),                intent(in)     :: deb, dti ! eb and ti grid
-    integer,                    intent(in)      :: ebi, tii    ! lower indices
-    real(double),                intent(in)     :: eb, ti      ! desired values
-    real(double),dimension(nlevs+1,nlevs),intent(out) :: interp_out  ! output
-    real(double), dimension(nlevs+1,nlevs)      :: c00, c10, c01, c11, c0, c1
-    real(double)    :: eb0, ti0
-    eb0=(ebi-1)*deb
-    ti0=(tii-1)*dti
-    c00 = coef_matrix(:,:,ebi  ,tii  )
-    c10 = coef_matrix(:,:,ebi+1,tii  )
-    c01 = coef_matrix(:,:,ebi  ,tii+1)
-    c11 = coef_matrix(:,:,ebi+1,tii+1)
-    !linear interpolation between C00 and C10 to find C0, C01 and C11 to find C1
-    c0  = c00 + (c10 - c00) * (eb - eb0) / deb
-    c1  = c01 + (c11 - c01) * (eb - eb0) / deb
-    interp_out=( c0  + (c1  - c0) * (ti - ti0) / dti)
-  end subroutine table_interp
-
 
   subroutine colrad(ac,vn,dt,states,photons,neut_type,nlaunch,ri,det)
     !colrad solves the collisional-radiative balance equations
@@ -1557,9 +1687,6 @@ contains
     photons=dens(3)*tables%einstein(2,3) !! - [Ph/(s*cm^3)] - !!
   end subroutine colrad
 
-  !***************************************************************************
-  !-----------spectrum--------------------------------------------------------
-  !***************************************************************************
   subroutine spectrum(vi,ac,pos,photons,neut_type,wavout,intout)
     !!spectrum.pro computes the wavelengths of emitted photons
     real(double), dimension(:), intent(in) :: vi!!velocitiy of neutral [cm/s]
@@ -1637,150 +1764,57 @@ contains
     enddo loop_over_channels
   end subroutine spectrum
 
+  !*****************************************************************************
+  !*************************Random Number Generators****************************
+  !*****************************************************************************
+  function ran()
+    !!uniform random number generator from NUMERICAL RECEPIES
+    real(double)           :: ran
+    !$OMP CRITICAL(random)
+    ran_ix=ieor(ran_ix,ishft(ran_ix,13)) !Marsaglia shift sequence
+    ran_ix=ieor(ran_ix,ishft(ran_ix,-17))
+    ran_ix=ieor(ran_ix,ishft(ran_ix,5))
+    ran_k=ran_iy/ran_IQ !Park-Miller sequence by Schrage’s method,
+    ran_iy=ran_IA*(ran_iy-ran_k*ran_IQ)-ran_IR*ran_k
+    if(ran_iy.lt.0) ran_iy=ran_iy+ran_IM
+    ran=ran_am*ior(iand(ran_IM,ieor(ran_ix,ran_iy)),1) !Combine the generators
+    !$OMP END CRITICAL(random)
+  end function ran
+
+  subroutine randn(randomn)
+    !!Box Mueller Method to calculate normal distribution
+    real(double),dimension(:),intent(inout):: randomn
+    integer                                :: nran, i
+    real(double)                           :: x1,x2,w
+    randomn=0.d0 ;  nran=size(randomn) ; i=1
+    do while (i.le.nran)
+       w=1.d0
+       do while (w.ge.1.d0)
+          x1=2.d0*ran()-1.d0
+          x2=2.d0*ran()-1.d0
+          w=x1*x1+x2*x2
+       enddo
+       w=sqrt((-2.d0*log(w))/w)
+       randomn(i)=x1*w
+       i=i+1
+       if(i.gt.nran)exit
+       randomn(i)=x2*w
+       i=i+1
+    enddo
+  end subroutine randn
+
+  subroutine randu(randomu)
+    real(double), dimension(:), intent(inout):: randomu
+    integer                                  :: i
+    randomu=0.d0
+    do i=1,size(randomu)
+       randomu(i)=ran()
+    enddo
+  end subroutine randu
 
   !*****************************************************************************
-  !------------track------------------------------------------------------------
+  !***************************Monte Carlo Routines******************************
   !*****************************************************************************
-  subroutine track(vin, rin, tcell, icell,pos, ncell)
-    !!track computes the path of a neutral through a the FIDAcode grid
-    real(double), dimension(:)  , intent(in)   :: rin  ! initial position
-    real(double), dimension(:)  , intent(in)   :: vin  ! velocitiy
-    integer               , intent(out)        :: ncell! number of cells
-    real(double), dimension(:)  , intent(out)  :: tcell! time per cell
-    integer,dimension(:,:), intent(out)        :: icell! cell indices
-    real(double), dimension(:,:), intent(out)  :: pos  ! mean position in cell
-    integer                    :: cc    !!step number along the track
-    integer,dimension(3)       :: p,l    !!indices of the cells
-    real(double), dimension(3) :: dt_arr !!time to cell boundary
-    real(double)               :: dt     !!min time to cell boundary
-    real(double), dimension(3) :: vn !!velocitiy that can be changed
-    real(double), dimension(3) :: ri !!position of ray
-    integer, dimension(1) :: minpos  !! dummy array to determine minloc
-
-    tcell=0.d0 ; icell=0 ;  ; pos=0.d0 ; ncell=0
-    vn(:)=vin(:) ;  ri(:)=rin(:)
-    !! define actual cell
-    minpos=minloc(abs(rin(1)-beam_grid%xxc))
-    p(1)=minpos(1)
-    minpos=minloc(abs(rin(2)-beam_grid%yyc))
-    p(2)=minpos(1)
-    minpos=minloc(abs(rin(3)-beam_grid%zzc))
-    p(3)=minpos(1)
-    !! Fudge zero velocity components to avoid overflow error
-    where (vn(:).eq.0) vn(:) = 0.001
-    !! Start tracking routine
-    icell(:,1)=p(:)
-    cc=1
-    !!loop along track of neutral
-    tracking: do while(cc.lt.(beam_grid%ntrack))
-       l(:)=p(:)
-       where(vn(:).gt.0.d0) l(:)=p(:)+1
-       if ( l(1).gt.beam_grid%nx.or.&
-            l(2).gt.beam_grid%ny.or.&
-            l(3).gt.beam_grid%nz) exit tracking
-       !time needed to go to next cell
-       dt_arr(1)=(beam_grid%xx(l(1))-ri(1))/vn(1)
-       dt_arr(2)=(beam_grid%yy(l(2))-ri(2))/vn(2)
-       dt_arr(3)=(beam_grid%zz(l(3))-ri(3))/vn(3)
-       minpos=minloc(dt_arr)
-       dt=dt_arr(minpos(1))
-       pos(:,cc) = ri(:) + vn(:)*dt*0.5  !! mean postion in cell
-       ri(:)     = ri(:) + vn(:)*dt
-       if (vn(minpos(1)).gt.0.d0)  then
-          p(minpos(1))=p(minpos(1))+1
-       else
-          p(minpos(1))=p(minpos(1))-1
-       endif
-       if (any(p.le.0))exit tracking
-       tcell(cc)=dt
-       icell(:,cc+1)=p(:)
-       cc=cc+1
-    enddo tracking
-    ncell=cc-1
-  end subroutine track
-
- !*****************************************************************************
- !------------chord_coor-------------------------------------------------------
- !*****************************************************************************
-  subroutine chord_coor(xyz_i,xyz_f,origin,pos_in,pos_out)
-    real(double), dimension(3)                    :: pos_in,pos_out
-    real(double), dimension(3)                    :: xyz_i,xyz_f,origin
-    real(double)                                  :: phi,theta,xp,yp,zp
-
-    phi=atan2((xyz_f(2)-xyz_i(2)),(xyz_f(1)-xyz_i(1)))
-    theta= -1*atan2(sqrt((xyz_f(1)-xyz_i(1))**2.0 + (xyz_f(2)-xyz_i(2))**2.0),(xyz_f(3)-xyz_i(3)))
-
-    xp=(pos_in(1)-origin(1))*cos(phi)+(pos_in(2)-origin(2))*sin(phi)
-    yp=-(pos_in(1)-origin(1))*sin(phi)+(pos_in(2)-origin(2))*cos(phi)
-    zp=pos_in(3)-origin(3)
-    pos_out(1)=xp*cos(theta)+zp*sin(theta)
-    pos_out(2)=yp
-    pos_out(3)=-xp*sin(theta)+zp*cos(theta)
-  end subroutine chord_coor
-
- !*****************************************************************************
- !------------inv_chord_coor-------------------------------------------------------
- !*****************************************************************************
-  subroutine inv_chord_coor(xyz_i,xyz_f,origin,pos_in,pos_out)
-    real(double), dimension(3)                    :: pos_in,pos_out
-    real(double), dimension(3)                    :: xyz_i,xyz_f,origin
-    real(double)                                  :: phi,theta
-
-    phi=atan2((xyz_f(2)-xyz_i(2)),(xyz_f(1)-xyz_i(1)))
-    theta= -1*atan2(sqrt((xyz_f(1)-xyz_i(1))**2.0 + (xyz_f(2)-xyz_i(2))**2.0),(xyz_f(3)-xyz_i(3)))
-    pos_out(1)=origin(1)+pos_in(1)*cos(phi)*cos(theta) - pos_in(3)*cos(phi)*sin(theta) - pos_in(2)*sin(phi)
-    pos_out(2)=origin(2)+pos_in(2)*cos(phi) + pos_in(1)*cos(theta)*sin(phi) - pos_in(3)*sin(phi)*sin(theta)
-    pos_out(3)=origin(3)+pos_in(3)*cos(theta) + pos_in(1)*sin(theta)
-
-  end subroutine inv_chord_coor
-
- !*****************************************************************************
- !------------hit_npa_detector-------------------------------------------------
- !*****************************************************************************
-  subroutine hit_npa_detector(pos,vel,det)
-    integer                                       :: i,det,cnt
-    real(double), dimension(3)                    :: pos,vel,xyz_i,xyz_f
-    real(double), dimension(3)                    :: rpos,rvel
-    real(double)                                  :: ra,rd,xa,ya,xd,yd
-
-    det=0
-    cnt=0
-    loop_over_chan: do i=1,chords%nchan
-      !!only do npa channels
-      if(chords%chan_id(i).ne.1) cycle loop_over_chan
-      cnt=cnt+1
-      !!transform to chord coordinates
-      xyz_i(1)=chords%xyzlens(i,1)
-      xyz_i(2)=chords%xyzlens(i,2)
-      xyz_i(3)=chords%xyzlens(i,3)
-      xyz_f(1)=chords%xyzlos(i,1)
-      xyz_f(2)=chords%xyzlos(i,2)
-      xyz_f(3)=chords%xyzlos(i,3)
-
-      call chord_coor(xyz_i,xyz_f,xyz_i,pos,rpos)
-      call chord_coor(xyz_i,xyz_f,xyz_i*0.0,vel,rvel)
-
-      !!if a neutral particle is moving in the opposite direction it will not hit detector
-      if(rvel(3).ge.0) cycle loop_over_chan
-      xa=rpos(1)+rvel(1)*(-rpos(3)/rvel(3))
-      ya=rpos(2)+rvel(2)*(-rpos(3)/rvel(3))
-      ra=sqrt(xa**2.0 + ya**2.0)
-      xd=rpos(1)+rvel(1)*((-chords%h(i)-rpos(3))/rvel(3))
-      yd=rpos(2)+rvel(2)*((-chords%h(i)-rpos(3))/rvel(3))
-      rd=sqrt(xd**2.0 + yd**2.0)
-
-      !!if a neutral particle pass through both the aperture and detector then it count it
-      if( rd.le.chords%rd(i).and.ra.le.chords%ra(i) ) then
-        det=cnt
-        exit loop_over_chan
-      endif
-    enddo loop_over_chan
-
-  end subroutine hit_npa_detector
-
- !*****************************************************************************
- !----------- get_nlaunch -----------------------------------------------------
- !*****************************************************************************
   subroutine get_nlaunch(nr_markers,papprox,papprox_tot,nlaunch)
     !! routine to define the number of MC particles started in one cell
     integer                       , intent(in)    :: nr_markers
@@ -1812,8 +1846,135 @@ contains
     deallocate(randomu)
   end subroutine get_nlaunch
 
+  subroutine mc_fastion(ac,ri,vi)
+    !!IN: ac,   OUT: ri,vi
+    !!mcbeam computes monte carlo velocity of fast ions from cell%fbm
+    integer,      dimension(3), intent(in) :: ac !ind of actual cell
+    real(double), dimension(3), intent(out):: vi !velocity [cm/s]
+    real(double), dimension(3), intent(out):: ri !starting position
+    real(double), dimension(3)             :: a,b,c ! vectors relative to b
+    real(double), dimension(3)             :: b_norm,vxB,r_gyro,rp,pc
+    real(double)                           :: eb ,ptch
+    integer                                :: ienergy, ipitch ,ii
+    real(double)                           :: vabs, phi, sinus
+    real(double)                           :: one_over_omega,b_abs
+    real(double), dimension(3)             :: randomu3
+    real(double), dimension(4)             :: randomu4
+    integer, dimension(1) :: minpos  !! dummy array to determine minloc
+
+    call randu(randomu3)
+    ri(1)=beam_grid%xx(ac(1))+ beam_grid%dr(1)*randomu3(1)
+    ri(2)=beam_grid%yy(ac(2))+ beam_grid%dr(2)*randomu3(2)
+    ri(3)=beam_grid%zz(ac(3))+ beam_grid%dr(3)*randomu3(3)
+
+    !! Assumes that magnetic field does not change appreciably over gyroradius
+    a=cell(ac(1),ac(2),ac(3))%plasma%a_norm(:)
+    b=cell(ac(1),ac(2),ac(3))%plasma%b_norm(:)
+    c=cell(ac(1),ac(2),ac(3))%plasma%c_norm(:)
+    b_abs=cell(ac(1),ac(2),ac(3))%plasma%b_abs
+    b_norm=cell(ac(1),ac(2),ac(3))%plasma%b_norm(:)
+    one_over_omega=inputs%ab*mass_u/(b_abs*e0)
+
+    !! Use rejection method to determine velocity vector
+    vi=0.d0
+    rejection_loop: do ii=1,10000
+       call randu(randomu4)
+       !! Pick a random energy, pitch, and gyro angle
+       eb   = fbm%emin + fbm%eran * randomu4(1)
+       ptch = fbm%pmin + fbm%pran * randomu4(2)
+       phi  = 2.d0*pi*randomu4(3)
+
+       !! Calculate gyroradius
+       vabs  = sqrt(eb/(v_to_E*inputs%ab))
+       sinus = sqrt(1.d0-ptch**2)
+       vi(:) = vabs * (sinus*cos(phi)*a + ptch*b + sinus*sin(phi)*c)
+       vxB(1)= (vi(2) * b_norm(3) - vi(3) * b_norm(2))
+       vxB(2)= (vi(3) * b_norm(1) - vi(1) * b_norm(3))
+       vxB(3)= (vi(1) * b_norm(2) - vi(2) * b_norm(1))
+       r_gyro(:)=vxB(:)*one_over_omega
+
+       !! Move a gyrorbit away and sample distribution there
+       rp(:)=ri(:)+r_gyro(:)
+       !! find new cell
+       minpos=minloc(abs(rp(1)-beam_grid%xxc))
+       pc(1)=minpos(1)
+       minpos=minloc(abs(rp(2)-beam_grid%yyc))
+       pc(2)=minpos(1)
+       minpos=minloc(abs(rp(3)-beam_grid%zzc))
+       pc(3)=minpos(1)
+       if(allocated(cell(pc(1),pc(2),pc(3))%fbm)) then
+         !! take point in FBM distribution closest to eb, ptch.
+         minpos=minloc(abs(eb   - fbm%energy))
+         ienergy= minpos(1)
+         minpos=minloc(abs(ptch - fbm%pitch ))
+         ipitch = minpos(1)
+         if((cell(pc(1),pc(2),pc(3))%fbm(ienergy,ipitch)).gt.randomu4(4))then
+            return
+         endif
+       endif
+       vi=0.d0
+    enddo rejection_loop
+
+    print*, 'rejection method found no solution!'
+    !print*, cell(ac(1),ac(2),ac(3))%fbm
+  end subroutine mc_fastion
+
+  subroutine mc_halo(ac,vhalo)
+    integer, dimension(3) , intent(in)          :: ac    !! index of actual cell
+    real(double),    dimension(3) , intent(out) :: vhalo !! velocity [cm/s]
+    real(double),    dimension(3)               :: randomn
+    call randn(randomn)
+    vhalo(:)=   cell(ac(1),ac(2),ac(3))%plasma%vrot(:) &
+         + sqrt(cell(ac(1),ac(2),ac(3))%plasma%ti      &
+         * 0.5/(v_to_E*inputs%ai)) &
+         * randomn(:) !![cm/s]
+  end subroutine mc_halo
+
+  subroutine mc_nbi(vnbi,efrac,rnbi)
+    !!-- mc_nbi computes monte carlo velocity and initial start position of
+    !!-- NBI neutrals on the FIDASIM grid
+    !! In this routine xyz refers to the beam sightline coordinate system where
+    !! xyz_src is the origin uvw will then refer to beam grid coordinates(xyz)
+    integer, intent(in)                               :: efrac !! energy fraction
+    real(double), dimension(3), intent(out)           :: vnbi  !! velocity [cm/s]
+    real(double), dimension(3), intent(out), optional :: rnbi  !! postition
+    real(double), dimension(3)                        :: r_exit
+    real(double), dimension(3)   :: uvw_src    !! Start position on ion source
+    real(double), dimension(3)   :: xyz_src    !! Start position on ion source
+    real(double), dimension(3)   :: uvw_ray    !! NBI velocity in uvw coords
+    real(double), dimension(3)   :: xyz_ray    !! NBI velocity in xyz coords
+    real(double), dimension(2)   :: randomu    !! uniform random numbers
+    real(double), dimension(2)   :: randomn    !! normal random numbers
+    integer                      :: nstep
+    real(double)                 :: length
+    !! ------------ Random start position on ion source grid -------------- !!
+    call randu(randomu)
+    xyz_src(1) =  0.d0
+    xyz_src(2) =  nbi%dv * 2.d0*(randomu(1)-0.5d0)
+    xyz_src(3) =  nbi%dw * 2.d0*(randomu(2)-0.5d0)
+
+    !! Create random velocity vector
+    call randn(randomn)
+    xyz_ray(1)= 1.d0
+    xyz_ray(2)=(xyz_src(2)/nbi%focy + tan(nbi%divay(efrac)*randomn(1)))
+    xyz_ray(3)=(xyz_src(3)/nbi%focz + tan(nbi%divaz(efrac)*randomn(2)))
+
+    call xyz_to_uvw(xyz_src,uvw_src,origin_in=nbi%xyz_src,alpha_in=nbi%alpha,beta_in=nbi%beta)
+    call xyz_to_uvw(xyz_ray,uvw_ray,alpha_in=nbi%alpha,beta_in=nbi%beta)
+    vnbi(:)=uvw_ray(:)/sqrt(dot_product(uvw_ray,uvw_ray))
+
+    !! ----------- Determine start postition on FIDASIM grid --------- !!
+    if(present(rnbi)) then
+      call grid_intersect(uvw_src,vnbi,length,rnbi,r_exit)
+      if(length.le.0.0) rnbi=(/-1.0,0.0,0.0/)
+    endif
+
+    !! ---- Determine velocity of neutrals corrected by efrac ---- !!
+    vnbi(:) = vnbi(:)*nbi%vinj/sqrt(real(efrac))
+  end subroutine mc_nbi
+
   !*****************************************************************************
-  !-----------ndmc (NBI)--------------------------------------------------------
+  !************************Primary Simulation Routines**************************
   !*****************************************************************************
   subroutine ndmc
     integer                                :: indmc     !! counter for markers
@@ -1847,7 +2008,7 @@ contains
        loop_over_markers: do indmc=1,inputs%n_nbi
           call mc_nbi(vnbi(:),type,rnbi(:))
           if(rnbi(1).eq.-1)cycle loop_over_markers
-          call track(vnbi,rnbi,tcell,icell,pos,ncell)
+          call track3D(rnbi,vnbi,tcell,icell,pos,ncell)
           if(ncell.eq.0) cycle loop_over_markers
           !! --------- solve collisional radiative model along track ----- !!
           states=0.d0
@@ -1870,10 +2031,6 @@ contains
     endif
   end subroutine ndmc
 
-
-  !*****************************************************************************
-  !-----------Bremsstrahlung ---------------------------------------------------
-  !*****************************************************************************
   subroutine bremsstrahlung
     integer        :: i,j,k,ichan,cnt   !! indices of cells
     real(double)   :: ne,zeff,te,gaunt,ccnt
@@ -1917,10 +2074,6 @@ contains
     deallocate(lambda_arr,brems)
   end subroutine bremsstrahlung
 
-
-  !*****************************************************************************
-  !-------------- Direct charge exchange calculation---------------------------
-  !*****************************************************************************
   subroutine dcx
     integer                                :: i,j,k   !! indices of cells
     real(double), dimension(3)             :: randomu
@@ -1979,7 +2132,7 @@ contains
                 ri(1)=beam_grid%xx(ac(1))+ beam_grid%dr(1)*randomu(1)
                 ri(2)=beam_grid%yy(ac(2))+ beam_grid%dr(2)*randomu(2)
                 ri(3)=beam_grid%zz(ac(3))+ beam_grid%dr(3)*randomu(3)
-                call track(vhalo(:), ri(:), tcell, icell,pos, ncell)
+                call track3D(ri(:), vhalo(:), tcell, icell,pos, ncell)
                 if(ncell.eq.0) cycle loop_over_dcx
                 !! ---------------- calculate CX probability ------------- !!
                 ac=icell(:,1)
@@ -2024,9 +2177,6 @@ contains
     !$OMP END PARALLEL DO
   end subroutine dcx
 
-  !*****************************************************************************
-  !-------------------------- halo -------------------------------------------
-  !*****************************************************************************
   subroutine halo
     integer                                :: i,j,k !indices of cells
     integer                                :: ihalo !! counter
@@ -2093,7 +2243,7 @@ contains
                    ri(1)=beam_grid%xx(ac(1))+ beam_grid%dr(1)*randomu(1)
                    ri(2)=beam_grid%yy(ac(2))+ beam_grid%dr(2)*randomu(2)
                    ri(3)=beam_grid%zz(ac(3))+ beam_grid%dr(3)*randomu(3)
-                   call track(vihalo(:), ri(:),tcell,icell,pos,ncell)
+                   call track3D(ri(:),vihalo(:),tcell,icell,pos,ncell)
                    if(ncell.eq.0)cycle loop_over_halos
                    !! ---------------- calculate CX probability --------------!!
                    ac=icell(:,1) !! new actual cell maybe due to gyro orbit!
@@ -2140,9 +2290,6 @@ contains
     result%neut_dens(:,:,:,:,s2type) = 0.d0
   end subroutine halo
 
-  !*****************************************************************************
-  !-----------FIDA simulation---------------------------------------------------
-  !*****************************************************************************
   subroutine fida
     integer                               :: i,j,k  !! indices  x,y,z  of cells
     integer                               :: iion,det,ip
@@ -2226,7 +2373,7 @@ contains
             call hit_npa_detector(ri(:),vi(:),det)
             if(det.eq.0) cycle loop_over_fast_ions
           endif
-          call track(vi(:), ri(:), tcell, icell,pos, ncell)
+          call track3D(ri(:), vi(:), tcell, icell,pos, ncell)
           if(ncell.eq.0)cycle loop_over_fast_ions
           !! ---------------- calculate CX probability --------------!!
           prob=0.d0
@@ -2280,10 +2427,6 @@ contains
     !$OMP END PARALLEL DO
   end subroutine fida
 
-
-  !*****************************************************************************
-  !----------- Calculation of FIDA weight functions-----------------------------
-  !*****************************************************************************
   subroutine fida_weight_function
     use netcdf
     real(double)                   :: radius
@@ -2551,10 +2694,10 @@ contains
                 !! calcualte possible trajectory of a fast-neutral that intersects
                 !! the measurment position with this velocity
                 !! The measurement postion is at maximum NBI density along LOS
-                call track(-vi_norm,pos,tcell,icell,pos_out,ncell)
+                call track3D(pos,-vi_norm,tcell,icell,pos_out,ncell)
                 pos_edge=pos_out(:,ncell-2)
                 !! now determine the track length throught the grid!
-                call track(vi_norm,pos_edge,tcell,icell,pos_out,ncell)
+                call track3D(pos_edge,vi_norm,tcell,icell,pos_out,ncell)
 
                 !! Calculate averge beam density seen by the fast-ion
                 cc=0 ; max_wght=0.d0 ; los_wght=0.d0 ;wght=0.d0
@@ -2715,9 +2858,6 @@ contains
     deallocate(vpa_grid)
   end subroutine fida_weight_function
 
-  !*****************************************************************************
-  !----------- Calculation of NPA weight functions------------------------------
-  !*****************************************************************************
   subroutine npa_weight_function
     use netcdf
     real(double)                    :: radius,theta
@@ -2861,7 +3001,7 @@ contains
              if (det.eq.0) cycle loop_along_x
 
              !!Determine path particle takes throught the grid
-             call track(vi_norm,pos,tcell,icell,pos_out,ncell)
+             call track3D(pos,vi_norm,tcell,icell,pos_out,ncell)
 
              !!Set velocity vectors of neutral beam species
              vnbi_f(:)=pos(:) - nbi%xyz_pos(:)
@@ -3019,7 +3159,7 @@ contains
 end module application
 
 !*****************************************************************************
-!-----------Main proagramm ---------------------------------------------------
+!*******************************Main Program**********************************
 !*****************************************************************************
 program fidasim
   use application
