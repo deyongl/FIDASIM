@@ -1346,7 +1346,7 @@ contains
     mini(3) = minval(beam_grid%zc) - 0.5*beam_grid%dr(3)
 
     do i=1,3
-      ac(i) = ceiling((pos(i)-mini(i))/beam_grid%dr(i))
+      ac(i) = floor((pos(i)-mini(i))/beam_grid%dr(i)) + 1
       if (ac(i).gt.maxind(i)) ac(i)=maxind(i)
       if (ac(i).lt.1) ac(i)=1
     enddo
@@ -1448,6 +1448,84 @@ contains
   !*****************************************************************************
   !*************************Profiles and Fields Routines************************
   !*****************************************************************************
+  subroutine interpol1D(x,y,xout,yout,err)
+    real(double), dimension(:), intent(in) :: x
+    real(double), dimension(:), intent(in) :: y
+    real(double), intent(in)               :: xout
+    real(double), intent(out)              :: yout
+    integer, intent(out)                   :: err
+    real(double)                           :: xmin,dx
+    integer                                :: ind,s
+
+    err = 1
+    s = size(x)
+    xmin = minval(x)
+    dx = abs(x(2)-x(1))
+
+    ind = floor((xout-xmin)/dx) + 1
+    if (ind.eq.s) ind = ind-1
+
+    if ((ind.le.(s-1)).and.(ind.gt.0)) then
+      dx = x(ind+1)-x(ind)
+      yout = y(ind) + ((y(ind+1) - y(ind))*(xout-x(ind)))/dx
+      err = 0
+    else
+      yout=0.0
+    endif
+
+  end subroutine interpol1D
+
+  subroutine interpol2D(x,y,z,xout,yout,zout,err,b11,b12,b21,b22)
+    real(double), dimension(:), intent(in)   :: x
+    real(double), dimension(:), intent(in)   :: y
+    real(double), dimension(:,:), intent(in) :: z
+    real(double), intent(in)                 :: xout
+    real(double), intent(in)                 :: yout
+    real(double), intent(out)                :: zout
+    integer, intent(out)                     :: err
+    real(double), intent(out), optional      :: b11
+    real(double), intent(out), optional      :: b12
+    real(double), intent(out), optional      :: b21
+    real(double), intent(out), optional      :: b22
+    real(double)                             :: xmin,ymin,dx,dy
+    integer                                  :: i,j,sx,sy
+
+    err = 1
+    sx = size(x)
+    sy = size(y)
+    xmin = minval(x)
+    ymin = minval(y)
+    dx = abs(x(2)-x(1))
+    dy = abs(y(2)-y(1))
+
+    i = floor((xout-xmin)/dx)+1
+    j = floor((yout-ymin)/dy)+1
+
+    if (i.eq.sx) i = i-1
+    if (j.eq.sy) j = j-1
+
+    if (((i.gt.0).and.(i.le.(sx-1))).and.((j.gt.0).and.(j.le.(sy-1)))) then
+      dx = x(i+1) - x(i)
+      dy = y(j+1) - y(j)
+
+      b11 = ((x(i+1)-xout) * (y(j+1)-yout))/(dx*dy)
+      b21 = ((xout-x(i))   * (y(j+1)-yout))/(dx*dy)
+      b12 = ((x(i+1)-xout) * (yout-y(j)))/(dx*dy)
+      b22 = ((xout-x(i))   * (yout-y(j)))/(dx*dy)
+
+      zout = b11*z(i,j) + b12*z(i,j+1) + b21*z(i+1,j) + b22*z(i+1,j+1)
+      err = 0
+    else
+      b11 = 0.0 ; b12 = 0.0 ; b21 = 0.0 ; b22 = 0.0
+      zout = 0.0
+    endif
+
+  end subroutine interpol2D
+
+  subroutine get_profiles(xyz,ti,te,dene,deni,denp,err)
+
+  end subroutine get_profiles
+
   subroutine calc_perp_vectors(b,a,c)
     !!Returns normalized vectors that are perpendicular to b
     real(double), dimension(3),intent(in)  :: b
@@ -1471,10 +1549,9 @@ contains
     endif
   end subroutine calc_perp_vectors
 
-  subroutine get_profiles(xyz,ti,te,dene,deni,denp,vrot)
+  subroutine get_fields(xyz,bfield,efield,err)
 
-  end subroutine get_profiles
-
+  end subroutine get_fields
   !*****************************************************************************
   !**************************Atomic Physics Routines****************************
   !*****************************************************************************
