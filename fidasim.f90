@@ -1828,16 +1828,16 @@ contains
           return
        endif
        !! ---------------------- Store spectra ---------------------- !!
-       do i=1,n_stark
-          bin=int(((wavel(i)-chords%lambdamin)/chords%dlambda)+.5)
-          if (bin.lt.1)            bin = 1
-          if (bin.gt.chords%nlambda) bin = chords%nlambda
+       loop_over_stark: do i=1,n_stark
+          bin=floor((wavel(i)-chords%lambdamin)/chords%dlambda) + 1
+          if (bin.lt.1)              cycle loop_over_stark
+          if (bin.gt.chords%nlambda) cycle loop_over_stark
           !$OMP CRITICAL(spec_trum)
           result%spectra(bin,cnt,neut_type)= &
                result%spectra(bin,cnt,neut_type) &
                +intens(i)*cell(ac(1),ac(2),ac(3))%los_wght(cnt)
           !$OMP END CRITICAL(spec_trum)
-       enddo
+       enddo loop_over_stark
     enddo loop_over_channels
   end subroutine spectrum
 
